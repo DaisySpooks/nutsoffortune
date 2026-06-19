@@ -1,6 +1,7 @@
 'use client'
 
 import { create } from 'zustand'
+import { subscribeWithSelector } from 'zustand/middleware'
 import { immer } from 'zustand/middleware/immer'
 import { WheelConfig, WheelEntry, WinnerRecord, WheelMeta, DisplayMode } from '@/types/wheel'
 import { DEFAULT_WHEEL_CONFIG } from '@/lib/constants'
@@ -61,12 +62,14 @@ interface WheelStore {
   addToHistory: (record: WinnerRecord) => void
   clearHistory: () => void
 
-  // Persistence actions (implementations filled in Phase 6)
+  // Persistence actions
   loadConfig: (config: WheelConfig) => void
+  loadWheel: (payload: { config: WheelConfig; history: WinnerRecord[]; autoRemoveWinner: boolean }) => void
   setSavedWheels: (meta: WheelMeta[]) => void
 }
 
 export const useWheelStore = create<WheelStore>()(
+  subscribeWithSelector(
   immer((set) => ({
     config: DEFAULT_WHEEL_CONFIG,
     isSpinning: false,
@@ -159,7 +162,20 @@ export const useWheelStore = create<WheelStore>()(
     loadConfig: (config) =>
       set((s) => { s.config = config; s.winner = null; s.currentAngle = 0 }),
 
+    loadWheel: (payload) =>
+      set((s) => {
+        s.config = payload.config
+        s.history = payload.history
+        s.autoRemoveWinner = payload.autoRemoveWinner
+        // Reset transient spin state for the freshly loaded wheel.
+        s.winner = null
+        s.currentAngle = 0
+        s.isSpinning = false
+        s.showWinnerModal = false
+      }),
+
     setSavedWheels: (meta) =>
       set((s) => { s.savedWheels = meta }),
   }))
+  )
 )

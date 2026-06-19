@@ -5,6 +5,7 @@ import { useDropzone } from 'react-dropzone'
 import { useWheelStore } from '@/store/wheelStore'
 import { v4 as uuid } from 'uuid'
 import { WheelEntry } from '@/types/wheel'
+import { storeImageBlob } from '@/lib/persistence'
 import { clsx } from 'clsx'
 
 interface Props {
@@ -16,18 +17,22 @@ export default function ImageUploader({ useFilenamesAsNames }: Props) {
   const [isDragActive, setIsDragActive] = useState(false)
 
   const onDrop = useCallback(
-    (acceptedFiles: File[]) => {
-      const newEntries: WheelEntry[] = acceptedFiles.map(file => {
+    async (acceptedFiles: File[]) => {
+      const newEntries: WheelEntry[] = []
+      for (const file of acceptedFiles) {
+        const imageId = uuid()
+        // Persist the blob to IndexedDB so the image survives a refresh.
+        await storeImageBlob(imageId, file)
         const imageUrl = URL.createObjectURL(file)
         const rawName = file.name.replace(/\.[^/.]+$/, '') // strip extension
-        return {
+        newEntries.push({
           id: uuid(),
           name: useFilenamesAsNames ? rawName : '',
-          imageId: uuid(), // placeholder; real IndexedDB key added in Phase 6
+          imageId,
           imageUrl,
           weight: 1,
-        }
-      })
+        })
+      }
       addEntries(newEntries)
     },
     [addEntries, useFilenamesAsNames]

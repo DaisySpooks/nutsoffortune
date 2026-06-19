@@ -3,6 +3,7 @@
 import { useWheelStore } from '@/store/wheelStore'
 import { getTheme } from '@/lib/colorUtils'
 import { useSpin } from '@/hooks/useSpin'
+import { usePersistence } from '@/hooks/usePersistence'
 import WheelCanvas from '@/components/wheel/WheelCanvas'
 import WheelPointer from '@/components/wheel/WheelPointer'
 import SpinButton from '@/components/wheel/SpinButton'
@@ -13,6 +14,9 @@ export default function Home() {
   const { config, currentAngle, winner, isSpinning } = useWheelStore()
   const theme = getTheme(config.themeId)
   const { spin } = useSpin()
+
+  // Phase 6 — rehydrate the active wheel from IndexedDB and autosave changes.
+  usePersistence()
 
   const entries = config.entries
   const winnerIndex = winner

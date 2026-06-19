@@ -46,6 +46,21 @@ export interface WheelMeta {
   updatedAt: number
 }
 
+/**
+ * A wheel as persisted in IndexedDB. Entry/winner `imageUrl`s are stripped on
+ * save (object URLs are session-only); images are stored as blobs keyed by
+ * `imageId` in the separate `images` store and rehydrated on load.
+ */
+export interface StoredWheel {
+  id: string
+  name: string
+  config: WheelConfig
+  history: WinnerRecord[]
+  autoRemoveWinner: boolean
+  createdAt: number
+  updatedAt: number
+}
+
 export interface WheelFile {
   version: '1.0'
   exportedAt: number
