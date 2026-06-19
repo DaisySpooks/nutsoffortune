@@ -1,0 +1,81 @@
+@import "tailwindcss";
+
+:root {
+  /* ───────────────────────────────────────────────────────────────────────
+     WHEEL SLICE PALETTE — intentionally separate from the app theme.
+     Keep these bright, flexible, and readable. Do NOT fold them into the
+     brand palette; the wheel slices are themed independently.
+     ─────────────────────────────────────────────────────────────────────── */
+  --wof-slice-0: #e74c3c;
+  --wof-slice-1: #e67e22;
+  --wof-slice-2: #f1c40f;
+  --wof-slice-3: #2ecc71;
+  --wof-slice-4: #1abc9c;
+  --wof-slice-5: #3498db;
+  --wof-slice-6: #9b59b6;
+  --wof-slice-7: #e91e63;
+  --wof-slice-8: #00bcd4;
+  --wof-slice-9: #8bc34a;
+  --wof-text: #ffffff;
+  --wof-border: #ffffff;
+  --wof-pointer: #e74c3c;
+
+  /* ───────────────────────────────────────────────────────────────────────
+     APP THEME — "OG Peanut" warm premium mini-app UI.
+     Controls the INTERFACE only (background, panels, borders, buttons, text).
+     ─────────────────────────────────────────────────────────────────────── */
+  --app-bg: #130c08;          /* very dark warm brown / near-black */
+  --app-bg-deep: #0c0705;
+  --panel: #1b130d;           /* dark rounded panels / cards */
+  --panel-raised: #241a12;    /* slightly lifted surfaces, secondary buttons */
+  --row: #21180f;             /* entry rows */
+  --row-hover: #2c2016;
+
+  --border: rgba(233, 186, 116, 0.14);       /* thin gold hairline */
+  --border-mid: rgba(233, 170, 90, 0.28);
+  --border-accent: rgba(240, 150, 55, 0.55); /* thin orange/gold */
+
+  --accent: #f0892c;          /* orange primary */
+  --accent-hi: #ffa648;
+  --accent-deep: #d9701a;
+  --glow: rgba(240, 137, 44, 0.40); /* soft orange glow */
+
+  --text: #f3e6cf;            /* warm cream body text */
+  --text-strong: #fbeed5;
+  --gold: #f0cd86;            /* cream/gold headings & highlights */
+  --muted: #b59a74;
+  --muted-dim: #8a755a;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  color: var(--text);
+  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+  background:
+    radial-gradient(ellipse 78% 58% at 50% 36%, var(--glow), transparent 68%),
+    radial-gradient(ellipse 120% 90% at 50% 120%, rgba(120, 60, 18, 0.18), transparent 60%),
+    var(--app-bg);
+  background-attachment: fixed;
+}
+
+/* Warm gold heading glow */
+.text-glow {
+  text-shadow: 0 0 18px rgba(240, 137, 44, 0.35), 0 1px 0 rgba(0, 0, 0, 0.5);
+}
+
+/* Soft orange glow ring for the wheel frame and primary surfaces */
+.glow-ring {
+  box-shadow:
+    0 0 0 1px var(--border-accent),
+    0 0 32px -4px var(--glow),
+    inset 0 0 24px -8px rgba(240, 137, 44, 0.25);
+}
+
+/* Range input accent (warm orange) */
+input[type="range"] {
+  accent-color: var(--accent);
+}

@@ -1,0 +1,123 @@
+'use client'
+
+import { useCallback, useEffect, useRef } from 'react'
+import { useWheelStore } from '@/store/wheelStore'
+import {
+  easeOutCubic,
+  detectWinner,
+  targetAngleForEntry,
+  randomTargetAngle,
+} from '@/lib/wheelMath'
+import { v4 as uuid } from 'uuid'
+
+// How long the winning slice stays highlighted before auto-remove kicks in.
+const AUTO_REMOVE_DELAY_MS = 1800
+
+/**
+ * Phase 3 — drives the wheel spin animation.
+ *
+ * Reads the spin parameters from the store, animates `currentAngle` from its
+ * current value to a target angle with an ease-out curve, then resolves the
+ * winner via the pure helpers in lib/wheelMath. All wheel-landing math lives in
+ * wheelMath; this hook only owns the animation loop and the result side-effects.
+ */
+export function useSpin() {
+  const rafRef = useRef<number | null>(null)
+  const removeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  // Cancel any in-flight animation / pending removal if the component unmounts.
+  useEffect(() => {
+    return () => {
+      if (rafRef.current !== null) cancelAnimationFrame(rafRef.current)
+      if (removeTimerRef.current !== null) clearTimeout(removeTimerRef.current)
+    }
+  }, [])
+
+  const finishSpin = useCallback((finalAngle: number) => {
+    const store = useWheelStore.getState()
+    const entries = store.config.entries
+    if (entries.length === 0) {
+      store.setIsSpinning(false)
+      return
+    }
+
+    const winner = detectWinner(finalAngle, entries)
+    store.setIsSpinning(false)
+    store.setWinner(winner)
+
+    if (!winner) return
+
+    // Announce the result.
+    store.setShowWinnerModal(true)
+
+    store.addToHistory({
+      id: uuid(),
+      entryId: winner.id,
+      name: winner.name,
+      imageUrl: winner.imageUrl,
+      timestamp: Date.now(),
+    })
+
+    // Auto-remove keeps the slice visible (and glowing) briefly before it goes.
+    if (store.autoRemoveWinner) {
+      removeTimerRef.current = setTimeout(() => {
+        useWheelStore.getState().removeEntry(winner.id)
+        removeTimerRef.current = null
+      }, AUTO_REMOVE_DELAY_MS)
+    }
+  }, [])
+
+  const spin = useCallback(() => {
+    const store = useWheelStore.getState()
+    const { config, isSpinning, currentAngle, isPredeterminedMode, predeterminedWinnerId } = store
+    const entries = config.entries
+
+    // Guard: need at least two entries and no spin already running.
+    if (isSpinning || entries.length < 2) return
+
+    // A fresh spin clears the previous result and any pending auto-remove.
+    if (removeTimerRef.current !== null) {
+      clearTimeout(removeTimerRef.current)
+      removeTimerRef.current = null
+    }
+    store.setWinner(null)
+    store.setShowWinnerModal(false)
+    store.setIsSpinning(true)
+
+    // Decide where to land. Predetermined mode steers to a specific entry;
+    // otherwise the landing angle is random.
+    let targetAngle: number
+    if (isPredeterminedMode && predeterminedWinnerId) {
+      const idx = entries.findIndex(e => e.id === predeterminedWinnerId)
+      targetAngle =
+        idx !== -1
+          ? targetAngleForEntry(currentAngle, idx, entries)
+          : randomTargetAngle(currentAngle)
+    } else {
+      targetAngle = randomTargetAngle(currentAngle)
+    }
+
+    const startAngle = currentAngle
+    const { minDuration, maxDuration } = config.spin
+    const span = Math.max(0, maxDuration - minDuration)
+    const duration = Math.max(1, minDuration + Math.random() * span)
+    const startTime = performance.now()
+
+    const tick = (now: number) => {
+      const t = Math.min((now - startTime) / duration, 1)
+      const angle = startAngle + (targetAngle - startAngle) * easeOutCubic(t)
+      useWheelStore.getState().setCurrentAngle(angle)
+
+      if (t < 1) {
+        rafRef.current = requestAnimationFrame(tick)
+      } else {
+        rafRef.current = null
+        finishSpin(targetAngle)
+      }
+    }
+
+    rafRef.current = requestAnimationFrame(tick)
+  }, [finishSpin])
+
+  return { spin }
+}
