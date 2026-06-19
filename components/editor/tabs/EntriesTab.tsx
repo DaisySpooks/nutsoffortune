@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState } from 'react'
 import { useWheelStore } from '@/store/wheelStore'
 import { WheelEntry } from '@/types/wheel'
 import { v4 as uuid } from 'uuid'
@@ -11,13 +11,130 @@ import EntryList from '@/components/editor/EntryList'
 
 // ─── utilities ───────────────────────────────────────────────────────────────
 
-function fisherYatesShuffle(arr: WheelEntry[]): WheelEntry[] {
+function fisherYatesShuffle<T>(arr: T[]): T[] {
   const out = [...arr]
   for (let i = out.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1))
     ;[out[i], out[j]] = [out[j], out[i]]
   }
   return out
+}
+
+/**
+ * Balances the wheel using slot placement instead of round-robin.
+ *
+ * Groups:
+ *  - Names that appear more than once → one group per repeated label
+ *  - Everything else (unique-name entries, images, unnamed) → one "main prizes" group
+ *
+ * For each group of size M in a total N-slot array, ideal positions are:
+ *   floor((k + phase) × N / M)  for k = 0..M-1
+ * where `phase` is a random 0–1 offset so each Balance wheel click varies the
+ * starting position while keeping the same even spacing.
+ *
+ * Groups are placed largest-first. When a target slot is taken, the nearest
+ * free slot is found by searching outward ±1, ±2, … (wrapping).
+ *
+ * A light cleanup pass then swaps adjacent same-label pairs when the swap
+ * provably reduces total adjacent-conflict count.
+ *
+ * Example: 20 image prizes + "25 nuts"×30 + "50 nuts"×10  (N=60)
+ *   25nuts fills every-other slot; images fill every-3rd; 50nuts every-6th
+ *   → [50,25,img,25,img,25] pattern repeated — no tail clustering
+ */
+function balanceWheel(entries: WheelEntry[]): WheelEntry[] {
+  if (entries.length < 2) return entries
+  const N = entries.length
+
+  // ── Build groups ──────────────────────────────────────────────────────────
+  const nameCounts = new Map<string, number>()
+  for (const e of entries) {
+    const name = e.name.trim()
+    if (name) nameCounts.set(name, (nameCounts.get(name) ?? 0) + 1)
+  }
+
+  const repeatedGroups = new Map<string, WheelEntry[]>()
+  const mainGroup: WheelEntry[] = []
+  for (const e of entries) {
+    const name = e.name.trim()
+    if (name && (nameCounts.get(name) ?? 0) > 1) {
+      if (!repeatedGroups.has(name)) repeatedGroups.set(name, [])
+      repeatedGroups.get(name)!.push(e)
+    } else {
+      mainGroup.push(e)
+    }
+  }
+
+  const allGroups: { key: string; items: WheelEntry[] }[] = []
+  if (mainGroup.length > 0) allGroups.push({ key: '__main__', items: mainGroup })
+  for (const [name, grp] of repeatedGroups) allGroups.push({ key: name, items: grp })
+  allGroups.sort((a, b) => b.items.length - a.items.length)
+
+  // ── Slot placement — largest group first ──────────────────────────────────
+  const output: (WheelEntry | null)[] = new Array(N).fill(null)
+  const keyAt: (string | null)[]      = new Array(N).fill(null)
+
+  for (const group of allGroups) {
+    const M     = group.items.length
+    const phase = Math.random() // rotate starting position for variety each click
+
+    for (let k = 0; k < M; k++) {
+      const ideal = Math.floor((k + phase) * N / M) % N
+
+      // Search outward for the nearest free slot, wrapping around the wheel.
+      let placed = false
+      for (let delta = 0; delta < N && !placed; delta++) {
+        const candidates = delta === 0
+          ? [ideal]
+          : [(ideal + delta) % N, (ideal - delta + N) % N]
+        for (const pos of candidates) {
+          if (output[pos] === null) {
+            output[pos] = group.items[k]
+            keyAt[pos]  = group.key
+            placed = true
+            break
+          }
+        }
+      }
+    }
+  }
+
+  // ── Light cleanup: reduce adjacent same-label pairs ───────────────────────
+  // One forward pass — swap position b with a non-adjacent j when it lowers
+  // the total number of same-key neighbours at those two positions.
+  for (let i = 0; i < N; i++) {
+    const b = (i + 1) % N
+    if (keyAt[i] !== keyAt[b]) continue
+
+    const kb    = keyAt[b]!
+    const bPrev = keyAt[i]!                    // = kb, guaranteed by the if above
+    const bNext = keyAt[(b + 1) % N]
+
+    // conflictsBeforeB: bPrev==kb is always 1; bNext may add 1
+    const conflictsBeforeB = 1 + (bNext === kb ? 1 : 0)
+
+    for (let delta = 2; delta < N - 1; delta++) {
+      const j  = (b + delta) % N
+      const kj = keyAt[j]!
+      if (kj === kb) continue                  // same label, no gain
+
+      const jPrev = keyAt[(j - 1 + N) % N]!
+      const jNext = keyAt[(j + 1) % N]
+
+      const conflictsBeforeJ = (jPrev === kj ? 1 : 0) + (jNext === kj ? 1 : 0)
+      const conflictsAfterB  = (bPrev === kj ? 1 : 0) + (bNext === kj ? 1 : 0)
+      const conflictsAfterJ  = (jPrev === kb ? 1 : 0) + (jNext === kb ? 1 : 0)
+
+      if (conflictsAfterB + conflictsAfterJ < conflictsBeforeB + conflictsBeforeJ) {
+        const tmp = output[b]; output[b] = output[j]; output[j] = tmp
+        keyAt[b] = kj
+        keyAt[j] = kb
+        break
+      }
+    }
+  }
+
+  return output as WheelEntry[]
 }
 
 /**
@@ -34,7 +151,6 @@ function interleaveInto(existing: WheelEntry[], added: WheelEntry[]): WheelEntry
   const N = added.length
   const total = M + N
 
-  // Target slot in the final array for each added entry.
   const targets = Array.from({ length: N }, (_, k) =>
     Math.round((k + 0.5) * total / N)
   )
@@ -46,7 +162,6 @@ function interleaveInto(existing: WheelEntry[], added: WheelEntry[]): WheelEntry
   for (let i = 0; i < total; i++) {
     const newReady  = nIdx < N && targets[nIdx] <= i
     const existLeft = eIdx < M
-
     if (newReady || !existLeft) {
       result.push(added[nIdx++])
     } else {
@@ -57,7 +172,7 @@ function interleaveInto(existing: WheelEntry[], added: WheelEntry[]): WheelEntry
   return result
 }
 
-// ─── bulk-add form state ──────────────────────────────────────────────────────
+// ─── bulk-add form ────────────────────────────────────────────────────────────
 
 type BulkRow = { id: string; name: string; count: number }
 
@@ -75,25 +190,6 @@ export default function EntriesTab() {
   const [showBulk, setShowBulk] = useState(false)
   const [bulkRows, setBulkRows] = useState<BulkRow[]>([makeRow()])
   const [spreadOnAdd, setSpreadOnAdd] = useState(false)
-  const [spreadLabel, setSpreadLabel] = useState('')
-
-  // Names that appear more than once — drives the re-spread control.
-  const duplicateNames = useMemo(() => {
-    const counts = new Map<string, number>()
-    for (const e of entries) {
-      const name = e.name.trim()
-      if (name) counts.set(name, (counts.get(name) ?? 0) + 1)
-    }
-    return Array.from(counts.entries())
-      .filter(([, n]) => n > 1)
-      .map(([name]) => name)
-      .sort()
-  }, [entries])
-
-  // Fall back to the first available duplicate if the current selection disappears.
-  const activeSpreadLabel = duplicateNames.includes(spreadLabel)
-    ? spreadLabel
-    : (duplicateNames[0] ?? '')
 
   function addBlank() {
     addEntries([{ id: uuid(), name: '', imageId: null, imageUrl: null, weight: 1 }])
@@ -103,13 +199,8 @@ export default function EntriesTab() {
     setEntries(fisherYatesShuffle(entries))
   }
 
-  function handleSpread() {
-    if (!activeSpreadLabel) return
-    const selected  = entries.filter(e => e.name.trim() === activeSpreadLabel)
-    const remaining = entries.filter(e => e.name.trim() !== activeSpreadLabel)
-    // If nothing to spread into, leave as-is.
-    if (remaining.length === 0) return
-    setEntries(interleaveInto(remaining, selected))
+  function handleBalance() {
+    setEntries(balanceWheel(entries))
   }
 
   // ── bulk form handlers ──
@@ -181,8 +272,8 @@ export default function EntriesTab() {
       </div>
 
       {/* Tools row */}
-      <div className="flex flex-wrap gap-2">
-        {entries.length > 1 && (
+      {entries.length > 1 && (
+        <div className="flex flex-wrap gap-2">
           <Button
             size="sm"
             variant="ghost"
@@ -191,37 +282,20 @@ export default function EntriesTab() {
           >
             Shuffle
           </Button>
-        )}
-        <Button
-          size="sm"
-          variant={showBulk ? 'secondary' : 'ghost'}
-          onClick={() => setShowBulk(v => !v)}
-        >
-          Bulk add
-        </Button>
-      </div>
-
-      {/* Re-spread control — only when a repeated label exists */}
-      {duplicateNames.length > 0 && (
-        <div className="flex items-center gap-2 flex-wrap">
-          <span className="text-xs text-[var(--muted)] shrink-0">Spread prize:</span>
-          <select
-            value={activeSpreadLabel}
-            onChange={e => setSpreadLabel(e.target.value)}
-            className="flex-1 min-w-0 bg-[var(--row)] border border-[var(--border)] rounded-md px-2 py-1 text-sm text-[var(--text)] outline-none focus:border-[var(--border-accent)] transition-colors"
-          >
-            {duplicateNames.map(name => (
-              <option key={name} value={name}>{name}</option>
-            ))}
-          </select>
           <Button
             size="sm"
             variant="ghost"
-            onClick={handleSpread}
-            disabled={!activeSpreadLabel}
-            title={`Distribute all "${activeSpreadLabel}" entries evenly through the rest of the wheel`}
+            onClick={handleBalance}
+            title="Space repeated prize labels evenly around the wheel"
           >
-            Spread through wheel
+            Balance wheel
+          </Button>
+          <Button
+            size="sm"
+            variant={showBulk ? 'secondary' : 'ghost'}
+            onClick={() => setShowBulk(v => !v)}
+          >
+            Bulk add
           </Button>
         </div>
       )}
@@ -270,7 +344,7 @@ export default function EntriesTab() {
             + Add another
           </button>
 
-          {/* Spread toggle — only meaningful when there are existing entries */}
+          {/* Only meaningful when existing entries are already on the wheel */}
           {entries.length > 0 && (
             <label className="flex items-center gap-2 cursor-pointer select-none">
               <input
