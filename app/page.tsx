@@ -34,13 +34,21 @@ export default function Home() {
   return (
     <main className="flex flex-col lg:flex-row lg:h-screen lg:overflow-hidden">
       {/* Wheel section — fixed height on desktop so it never scrolls off screen */}
-      <section className="flex flex-col items-center justify-center flex-1 p-6 min-h-[55vw] lg:min-h-0 lg:overflow-hidden">
+      <section
+        className="wheel-stage flex flex-col items-center justify-center flex-1 p-6 min-h-[55vw] lg:min-h-0 lg:overflow-hidden"
+        style={{
+          backgroundImage:
+            'radial-gradient(ellipse at center, rgba(0,0,0,0.45) 0%, rgba(0,0,0,0.72) 100%), url(/backgrounds/wheel-room.png)',
+          backgroundSize: 'cover',
+          backgroundPosition: 'center',
+        }}
+      >
         <h1 className="text-2xl font-bold text-[var(--gold)] mb-5 tracking-[0.12em] uppercase text-glow">
           {config.name}
         </h1>
 
         {/* Wheel + pointer container — gold ring frame with soft orange glow */}
-        <div className="relative w-full max-w-[min(90vw,90vh,560px)] aspect-square rounded-full glow-ring p-1.5">
+        <div className="wheel-seat relative w-full max-w-[min(90vw,90vh,560px)] aspect-square rounded-full glow-ring p-1.5">
           <WheelPointer color={theme.pointerColor} />
           <WheelCanvas
             entries={entries}

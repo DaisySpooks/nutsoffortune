@@ -75,6 +75,80 @@ body {
     inset 0 0 24px -8px rgba(240, 137, 44, 0.25);
 }
 
+/* ───────────────────────────────────────────────────────────────────────────
+   WHEEL STAGE — turns the wheel area into a dim premium interior.
+   Layered CSS only: warm amber glow behind the wheel, a mahogany/walnut mid
+   wash, and a dark vignette fading the edges into the room. No literal props.
+   ─────────────────────────────────────────────────────────────────────────── */
+.wheel-stage {
+  position: relative;
+  isolation: isolate; /* keep the seat's negative-z pseudos contained to this area */
+  background:
+    /* warm amber glow pooling behind the wheel */
+    radial-gradient(ellipse 64% 52% at 50% 44%, rgba(245, 158, 66, 0.16), transparent 70%),
+    /* mahogany / walnut warmth around the disc */
+    radial-gradient(ellipse 105% 90% at 50% 40%, rgba(78, 45, 25, 0.45), transparent 74%),
+    /* dark vignette: clear center, edges fade to near-black */
+    radial-gradient(circle at 50% 46%, transparent 46%, rgba(7, 4, 2, 0.62) 100%),
+    /* subtle top-to-bottom settle so the floor reads darker than the air */
+    linear-gradient(180deg, rgba(12, 7, 5, 0.10), rgba(7, 4, 2, 0.55));
+}
+
+/* Very restrained haze — low-opacity warm light, screened so it reads as dim
+   air rather than smoke. Sits just above the stage gradients. */
+.wheel-stage::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    radial-gradient(ellipse 52% 42% at 50% 32%, rgba(255, 206, 140, 0.05), transparent 72%),
+    radial-gradient(ellipse 80% 60% at 50% 70%, rgba(40, 22, 12, 0.30), transparent 75%);
+  mix-blend-mode: screen;
+}
+
+/* ───────────────────────────────────────────────────────────────────────────
+   WHEEL SEAT — depth right around the wheel: a soft brass halo behind it and a
+   grounding shadow beneath, so the disc feels seated in the environment.
+   ─────────────────────────────────────────────────────────────────────────── */
+.wheel-seat {
+  position: relative;
+}
+
+/* Soft brass / gold halo glow behind the wheel disc */
+.wheel-seat::before {
+  content: '';
+  position: absolute;
+  inset: -13%;
+  z-index: -1;
+  border-radius: 50%;
+  background: radial-gradient(
+    circle,
+    rgba(240, 150, 60, 0.22),
+    rgba(176, 108, 42, 0.10) 54%,
+    transparent 72%
+  );
+  filter: blur(12px);
+  pointer-events: none;
+}
+
+/* Elliptical grounding shadow so the wheel reads as resting in the room */
+.wheel-seat::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  bottom: -7%;
+  width: 80%;
+  height: 15%;
+  transform: translateX(-50%);
+  border-radius: 50%;
+  background: radial-gradient(ellipse at center, rgba(0, 0, 0, 0.58), transparent 70%);
+  filter: blur(10px);
+  z-index: -2;
+  pointer-events: none;
+}
+
 /* Range input accent (warm orange) */
 input[type="range"] {
   accent-color: var(--accent);

@@ -289,7 +289,7 @@ export default function WheelCanvas({
   return (
     <canvas
       ref={canvasRef}
-      className={`w-full h-full ${editMode ? (draggedId ? 'cursor-grabbing' : 'cursor-grab') : ''} ${editMode ? 'touch-none' : ''}`}
+      className={`w-full h-full rounded-full ${editMode ? (draggedId ? 'cursor-grabbing' : 'cursor-grab') : ''} ${editMode ? 'touch-none' : ''}`}
       style={{ display: 'block' }}
       onPointerDown={handlePointerDown}
       onPointerMove={handlePointerMove}
