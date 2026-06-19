@@ -10,9 +10,6 @@ import {
 } from '@/lib/wheelMath'
 import { v4 as uuid } from 'uuid'
 
-// How long the winning slice stays highlighted before auto-remove kicks in.
-const AUTO_REMOVE_DELAY_MS = 1800
-
 /**
  * Phase 3 — drives the wheel spin animation.
  *
@@ -23,13 +20,11 @@ const AUTO_REMOVE_DELAY_MS = 1800
  */
 export function useSpin() {
   const rafRef = useRef<number | null>(null)
-  const removeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  // Cancel any in-flight animation / pending removal if the component unmounts.
+  // Cancel any in-flight animation if the component unmounts.
   useEffect(() => {
     return () => {
       if (rafRef.current !== null) cancelAnimationFrame(rafRef.current)
-      if (removeTimerRef.current !== null) clearTimeout(removeTimerRef.current)
     }
   }, [])
 
@@ -58,12 +53,12 @@ export function useSpin() {
       timestamp: Date.now(),
     })
 
-    // Auto-remove keeps the slice visible (and glowing) briefly before it goes.
+    // Auto-remove resolves exactly once, here, the moment the spin lands. The
+    // modal reads the wheel's contents to decide its UI, so it never offers a
+    // second (duplicate) removal. When auto-remove is off the winner stays on
+    // the wheel (and highlighted) until the user removes it from the modal.
     if (store.autoRemoveWinner) {
-      removeTimerRef.current = setTimeout(() => {
-        useWheelStore.getState().removeEntry(winner.id)
-        removeTimerRef.current = null
-      }, AUTO_REMOVE_DELAY_MS)
+      store.removeEntry(winner.id)
     }
   }, [])
 
@@ -75,11 +70,7 @@ export function useSpin() {
     // Guard: need at least two entries and no spin already running.
     if (isSpinning || entries.length < 2) return
 
-    // A fresh spin clears the previous result and any pending auto-remove.
-    if (removeTimerRef.current !== null) {
-      clearTimeout(removeTimerRef.current)
-      removeTimerRef.current = null
-    }
+    // A fresh spin clears the previous result.
     store.setWinner(null)
     store.setShowWinnerModal(false)
     store.setIsSpinning(true)

@@ -58,6 +58,12 @@ export default function WinnerModal({ onSpinAgain }: Props) {
             </Button>
           )}
         </div>
+
+        {/* Auto-remove already took the winner off the wheel — say so instead of
+            offering a duplicate remove action. */}
+        {!stillOnWheel && (
+          <p className="text-xs text-[var(--muted)]">Removed from future spins.</p>
+        )}
       </div>
     </Modal>
   )
