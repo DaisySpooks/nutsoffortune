@@ -8,6 +8,35 @@ export function degreesToRadians(deg: number): number {
   return (deg * Math.PI) / 180
 }
 
+/**
+ * Which entry's slice sits under a point on the wheel.
+ *
+ * Inverts the renderer: slices start at `(currentAngle - 90)°` and sweep
+ * clockwise by `sliceDegrees`. Canvas Y points down, so `atan2` is already
+ * clockwise-positive and matches the draw direction. Returns the entry index,
+ * or -1 if there are no entries. Used by desktop direct-wheel editing.
+ */
+export function angleToEntryIndex(
+  px: number, py: number,
+  cx: number, cy: number,
+  currentAngle: number,
+  entries: WheelEntry[],
+): number {
+  if (entries.length === 0) return -1
+  const degrees = sliceDegrees(entries)
+  const offset = degreesToRadians(currentAngle - 90)
+  const local = Math.atan2(py - cy, px - cx) - offset
+  const twoPi = Math.PI * 2
+  const normDeg = (((local % twoPi) + twoPi) % twoPi) * (180 / Math.PI)
+
+  let cumulative = 0
+  for (let i = 0; i < degrees.length; i++) {
+    cumulative += degrees[i]
+    if (normDeg < cumulative) return i
+  }
+  return entries.length - 1
+}
+
 /** Total weight of all entries */
 export function totalWeight(entries: WheelEntry[]): number {
   return entries.reduce((sum, e) => sum + e.weight, 0)

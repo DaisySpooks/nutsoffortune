@@ -1,9 +1,12 @@
 'use client'
 
+import { useState } from 'react'
 import { useWheelStore } from '@/store/wheelStore'
 import { getTheme } from '@/lib/colorUtils'
 import { useSpin } from '@/hooks/useSpin'
 import { usePersistence } from '@/hooks/usePersistence'
+import { useMediaQuery } from '@/hooks/useMediaQuery'
+import { clsx } from 'clsx'
 import WheelCanvas from '@/components/wheel/WheelCanvas'
 import WheelPointer from '@/components/wheel/WheelPointer'
 import SpinButton from '@/components/wheel/SpinButton'
@@ -11,12 +14,17 @@ import EditorPanel from '@/components/editor/EditorPanel'
 import WinnerModal from '@/components/modals/WinnerModal'
 
 export default function Home() {
-  const { config, currentAngle, winner, isSpinning } = useWheelStore()
+  const { config, currentAngle, winner, isSpinning, reorderEntries } = useWheelStore()
   const theme = getTheme(config.themeId)
   const { spin } = useSpin()
 
   // Phase 6 — rehydrate the active wheel from IndexedDB and autosave changes.
   usePersistence()
+
+  // Desktop direct-wheel editing — desktop only, never while spinning.
+  const isDesktop = useMediaQuery('(min-width: 1024px)')
+  const [editMode, setEditMode] = useState(false)
+  const canEdit = editMode && isDesktop && !isSpinning
 
   const entries = config.entries
   const winnerIndex = winner
@@ -41,6 +49,8 @@ export default function Home() {
             displayMode={config.displayMode}
             winnerIndex={winnerIndex}
             backgroundUrl={null}
+            editMode={canEdit}
+            onReorder={reorderEntries}
           />
         </div>
 
@@ -49,6 +59,21 @@ export default function Home() {
           disabled={entries.length < 2}
           onSpin={spin}
         />
+
+        {/* Desktop-only direct-edit toggle — drag slices on the wheel to reorder */}
+        <button
+          onClick={() => setEditMode(v => !v)}
+          disabled={isSpinning}
+          className={clsx(
+            'mt-3 hidden lg:inline-flex items-center gap-2 rounded-full px-4 py-1.5 text-xs font-semibold uppercase tracking-wider border transition-colors disabled:opacity-50 disabled:cursor-not-allowed',
+            canEdit
+              ? 'border-[var(--border-accent)] bg-[var(--accent)]/15 text-[var(--gold)] shadow-[0_0_16px_-4px_var(--glow)]'
+              : 'border-[var(--border-mid)] text-[var(--muted)] hover:text-[var(--gold)] hover:border-[var(--border-accent)]'
+          )}
+          aria-pressed={canEdit}
+        >
+          {canEdit ? '✓ Editing wheel — drag slices' : 'Edit wheel'}
+        </button>
 
         {winner && (
           <div className="mt-3 text-center">
