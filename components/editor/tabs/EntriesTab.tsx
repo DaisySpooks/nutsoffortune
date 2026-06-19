@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { useWheelStore } from '@/store/wheelStore'
 import { WheelEntry } from '@/types/wheel'
 import { v4 as uuid } from 'uuid'
@@ -75,6 +75,25 @@ export default function EntriesTab() {
   const [showBulk, setShowBulk] = useState(false)
   const [bulkRows, setBulkRows] = useState<BulkRow[]>([makeRow()])
   const [spreadOnAdd, setSpreadOnAdd] = useState(false)
+  const [spreadLabel, setSpreadLabel] = useState('')
+
+  // Names that appear more than once — drives the re-spread control.
+  const duplicateNames = useMemo(() => {
+    const counts = new Map<string, number>()
+    for (const e of entries) {
+      const name = e.name.trim()
+      if (name) counts.set(name, (counts.get(name) ?? 0) + 1)
+    }
+    return Array.from(counts.entries())
+      .filter(([, n]) => n > 1)
+      .map(([name]) => name)
+      .sort()
+  }, [entries])
+
+  // Fall back to the first available duplicate if the current selection disappears.
+  const activeSpreadLabel = duplicateNames.includes(spreadLabel)
+    ? spreadLabel
+    : (duplicateNames[0] ?? '')
 
   function addBlank() {
     addEntries([{ id: uuid(), name: '', imageId: null, imageUrl: null, weight: 1 }])
@@ -82,6 +101,15 @@ export default function EntriesTab() {
 
   function handleShuffle() {
     setEntries(fisherYatesShuffle(entries))
+  }
+
+  function handleSpread() {
+    if (!activeSpreadLabel) return
+    const selected  = entries.filter(e => e.name.trim() === activeSpreadLabel)
+    const remaining = entries.filter(e => e.name.trim() !== activeSpreadLabel)
+    // If nothing to spread into, leave as-is.
+    if (remaining.length === 0) return
+    setEntries(interleaveInto(remaining, selected))
   }
 
   // ── bulk form handlers ──
@@ -172,6 +200,31 @@ export default function EntriesTab() {
           Bulk add
         </Button>
       </div>
+
+      {/* Re-spread control — only when a repeated label exists */}
+      {duplicateNames.length > 0 && (
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="text-xs text-[var(--muted)] shrink-0">Spread prize:</span>
+          <select
+            value={activeSpreadLabel}
+            onChange={e => setSpreadLabel(e.target.value)}
+            className="flex-1 min-w-0 bg-[var(--row)] border border-[var(--border)] rounded-md px-2 py-1 text-sm text-[var(--text)] outline-none focus:border-[var(--border-accent)] transition-colors"
+          >
+            {duplicateNames.map(name => (
+              <option key={name} value={name}>{name}</option>
+            ))}
+          </select>
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={handleSpread}
+            disabled={!activeSpreadLabel}
+            title={`Distribute all "${activeSpreadLabel}" entries evenly through the rest of the wheel`}
+          >
+            Spread through wheel
+          </Button>
+        </div>
+      )}
 
       {/* Bulk add form */}
       {showBulk && (
