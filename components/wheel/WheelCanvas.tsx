@@ -1,9 +1,9 @@
 'use client'
 
-import { useEffect, useRef, useCallback } from 'react'
+import { useEffect, useRef, useCallback, useState, PointerEvent as ReactPointerEvent } from 'react'
 import { WheelEntry, DisplayMode } from '@/types/wheel'
 import { ThemePreset } from '@/types/wheel'
-import { sliceDegrees, degreesToRadians } from '@/lib/wheelMath'
+import { sliceDegrees, degreesToRadians, angleToEntryIndex } from '@/lib/wheelMath'
 import { getSliceColor } from '@/lib/colorUtils'
 
 interface Props {
@@ -13,6 +13,21 @@ interface Props {
   displayMode: DisplayMode
   winnerIndex: number | null
   backgroundUrl?: string | null
+  /** Desktop direct-edit: when true, slices are draggable to reorder. */
+  editMode?: boolean
+  /** Called during a drag to move an entry to a new position. */
+  onReorder?: (from: number, to: number) => void
+}
+
+// Pointer position in canvas pixel space, plus the wheel geometry (mirrors draw()).
+function pointerGeom(canvas: HTMLCanvasElement, clientX: number, clientY: number) {
+  const rect = canvas.getBoundingClientRect()
+  const px = (clientX - rect.left) * (canvas.width / rect.width)
+  const py = (clientY - rect.top) * (canvas.height / rect.height)
+  const cx = canvas.width / 2
+  const cy = canvas.height / 2
+  const radius = canvas.width / 2 - 4
+  return { px, py, cx, cy, radius }
 }
 
 const CENTER_CIRCLE_RADIUS = 24
@@ -38,10 +53,53 @@ export default function WheelCanvas({
   displayMode,
   winnerIndex,
   backgroundUrl,
+  editMode = false,
+  onReorder,
 }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const imagesRef = useRef<Map<string, HTMLImageElement>>(new Map())
   const bgImageRef = useRef<HTMLImageElement | null>(null)
+
+  // Id of the slice currently being dragged in direct-edit mode (null otherwise).
+  const [draggedId, setDraggedId] = useState<string | null>(null)
+
+  // Leaving edit mode (e.g. a spin starts) cancels any in-progress drag.
+  useEffect(() => {
+    if (!editMode) setDraggedId(null)
+  }, [editMode])
+
+  const handlePointerDown = (e: ReactPointerEvent<HTMLCanvasElement>) => {
+    if (!editMode) return
+    const canvas = canvasRef.current
+    if (!canvas) return
+    const { px, py, cx, cy, radius } = pointerGeom(canvas, e.clientX, e.clientY)
+    const dist = Math.hypot(px - cx, py - cy)
+    // Only grab when the press lands on the ring of slices (not the hub / outside).
+    if (dist <= CENTER_CIRCLE_RADIUS || dist > radius) return
+    const idx = angleToEntryIndex(px, py, cx, cy, currentAngle, entries)
+    if (idx < 0) return
+    setDraggedId(entries[idx].id)
+    try { canvas.setPointerCapture(e.pointerId) } catch { /* no-op */ }
+  }
+
+  const handlePointerMove = (e: ReactPointerEvent<HTMLCanvasElement>) => {
+    if (!editMode || draggedId === null) return
+    const canvas = canvasRef.current
+    if (!canvas) return
+    const { px, py, cx, cy } = pointerGeom(canvas, e.clientX, e.clientY)
+    // Angle-only once dragging, so the cursor can roam outside the rim.
+    const target = angleToEntryIndex(px, py, cx, cy, currentAngle, entries)
+    const from = entries.findIndex(en => en.id === draggedId)
+    if (target >= 0 && from >= 0 && target !== from) {
+      onReorder?.(from, target)
+    }
+  }
+
+  const endDrag = (e: ReactPointerEvent<HTMLCanvasElement>) => {
+    if (draggedId === null) return
+    try { canvasRef.current?.releasePointerCapture(e.pointerId) } catch { /* no-op */ }
+    setDraggedId(null)
+  }
 
   // Load images when entries change
   useEffect(() => {
@@ -107,25 +165,56 @@ export default function WheelCanvas({
     const degrees = sliceDegrees(entries)
     const angleOffset = degreesToRadians(currentAngle - 90) // start at top
 
+    const DRAG_LIFT_PX = 10
+
+    // Build per-slice metadata for two-pass rendering (dragged slice drawn last).
+    type SliceInfo = {
+      startAngle: number
+      endAngle: number
+      midAngle: number
+      deg: number
+      entry: WheelEntry
+      index: number
+      isWinner: boolean
+      isDragged: boolean
+      color: string
+    }
+
+    const slices: SliceInfo[] = []
     let startAngle = angleOffset
 
     degrees.forEach((deg, i) => {
-      const endAngle = startAngle + degreesToRadians(deg)
-      const entry = entries[i]
-      const isWinner = winnerIndex === i
-      const color = entry.color ?? getSliceColor(theme, i)
+      const endAngle  = startAngle + degreesToRadians(deg)
+      const entry     = entries[i]
+      const isWinner  = winnerIndex === i
+      const isDragged = editMode && draggedId !== null && entry.id === draggedId
+      const color     = entry.color ?? getSliceColor(theme, i)
+      const midAngle  = startAngle + degreesToRadians(deg / 2)
+      slices.push({ startAngle, endAngle, midAngle, deg, entry, index: i, isWinner, isDragged, color })
+      startAngle = endAngle
+    })
+
+    const renderSlice = (s: SliceInfo) => {
+      ctx.save()
+
+      // Translate the whole slice (fill + content) outward along its midpoint angle.
+      if (s.isDragged) {
+        ctx.translate(
+          Math.cos(s.midAngle) * DRAG_LIFT_PX,
+          Math.sin(s.midAngle) * DRAG_LIFT_PX,
+        )
+      }
 
       // Slice fill
-      ctx.save()
       ctx.beginPath()
       ctx.moveTo(cx, cy)
-      ctx.arc(cx, cy, radius, startAngle, endAngle)
+      ctx.arc(cx, cy, radius, s.startAngle, s.endAngle)
       ctx.closePath()
-      ctx.fillStyle = color
+      ctx.fillStyle = s.color
       ctx.fill()
 
       // Winner glow
-      if (isWinner) {
+      if (s.isWinner) {
         ctx.shadowColor = '#fbbf24'
         ctx.shadowBlur = 24
         ctx.strokeStyle = '#fbbf24'
@@ -134,18 +223,30 @@ export default function WheelCanvas({
         ctx.shadowBlur = 0
       }
 
-      // Border
+      // Lifted-drag highlight — softened glow so it reads as "picked up", not harsh.
+      if (s.isDragged) {
+        ctx.shadowColor = 'rgba(240, 137, 44, 0.55)'
+        ctx.shadowBlur = 14
+        ctx.strokeStyle = '#f0cd86'
+        ctx.lineWidth = 3
+        ctx.stroke()
+        ctx.shadowBlur = 0
+      }
+
+      // Border (skipped for winner/dragged since they have their own stroke)
       ctx.strokeStyle = theme.borderColor
-      ctx.lineWidth = isWinner ? 0 : 1.5
+      ctx.lineWidth = (s.isWinner || s.isDragged) ? 0 : 1.5
       ctx.stroke()
+
+      // Content drawn in the same translated context so text/image lifts with the slice.
+      drawSliceContent(ctx, s.entry, s.index, cx, cy, radius, s.midAngle, s.deg, displayMode, theme, imagesRef.current, s.isWinner)
+
       ctx.restore()
+    }
 
-      // Content: image and/or text
-      const midAngle = startAngle + degreesToRadians(deg / 2)
-      drawSliceContent(ctx, entry, i, cx, cy, radius, midAngle, deg, displayMode, theme, imagesRef.current, isWinner)
-
-      startAngle = endAngle
-    })
+    // First pass: all non-dragged slices; second pass: dragged slice on top.
+    slices.filter(s => !s.isDragged).forEach(renderSlice)
+    slices.filter(s =>  s.isDragged).forEach(renderSlice)
 
     // Center circle
     ctx.save()
@@ -163,7 +264,7 @@ export default function WheelCanvas({
     ctx.fillStyle = theme.pointerColor
     ctx.fill()
     ctx.restore()
-  }, [entries, currentAngle, theme, displayMode, winnerIndex])
+  }, [entries, currentAngle, theme, displayMode, winnerIndex, editMode, draggedId])
 
   useEffect(() => {
     draw()
@@ -188,8 +289,12 @@ export default function WheelCanvas({
   return (
     <canvas
       ref={canvasRef}
-      className="w-full h-full"
+      className={`w-full h-full ${editMode ? (draggedId ? 'cursor-grabbing' : 'cursor-grab') : ''} ${editMode ? 'touch-none' : ''}`}
       style={{ display: 'block' }}
+      onPointerDown={handlePointerDown}
+      onPointerMove={handlePointerMove}
+      onPointerUp={endDrag}
+      onPointerCancel={endDrag}
     />
   )
 }
