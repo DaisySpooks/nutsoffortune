@@ -32,6 +32,8 @@ interface WheelStore {
 
   // Entry actions
   addEntries: (entries: WheelEntry[]) => void
+  setEntries: (entries: WheelEntry[]) => void
+  insertEntriesAfter: (afterId: string, entries: WheelEntry[]) => void
   updateEntry: (id: string, patch: Partial<WheelEntry>) => void
   removeEntry: (id: string) => void
   reorderEntries: (fromIndex: number, toIndex: number) => void
@@ -86,6 +88,16 @@ export const useWheelStore = create<WheelStore>()(
 
     addEntries: (entries) =>
       set((s) => { s.config.entries.push(...entries) }),
+
+    setEntries: (entries) =>
+      set((s) => { s.config.entries = entries }),
+
+    insertEntriesAfter: (afterId, newEntries) =>
+      set((s) => {
+        const idx = s.config.entries.findIndex(e => e.id === afterId)
+        const pos = idx === -1 ? s.config.entries.length : idx + 1
+        s.config.entries.splice(pos, 0, ...newEntries)
+      }),
 
     updateEntry: (id, patch) =>
       set((s) => {
