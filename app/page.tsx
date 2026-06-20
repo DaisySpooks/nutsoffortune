@@ -25,7 +25,7 @@ const PM_TOP = '38.5%'
 const PM_HALF_WHEEL = 'min(24vw, 33vh, 260px)'
 
 export default function Home() {
-  const { config, currentAngle, winner, isSpinning, reorderEntries } = useWheelStore()
+  const { config, currentAngle, winner, isSpinning, reorderEntries, wheelMode } = useWheelStore()
   const theme = getTheme(config.themeId)
   const { spin } = useSpin()
 
@@ -223,7 +223,7 @@ export default function Home() {
         {/* Winner label — absolute so it never shifts the wheel position */}
         {winner && (
           <div className="absolute bottom-5 left-1/2 -translate-x-1/2 text-center pointer-events-none">
-            <p className="text-xs uppercase tracking-[0.2em] text-[var(--muted)]">Winner</p>
+            <p className="text-xs uppercase tracking-[0.2em] text-[var(--muted)]">{wheelMode === 'spin-for-prize' ? 'Prize' : 'Winner'}</p>
             <p className="text-xl font-bold text-[var(--gold)] text-glow whitespace-nowrap">{winner.name}</p>
           </div>
         )}

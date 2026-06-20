@@ -3,6 +3,7 @@
 import { useEffect, useRef, useCallback, useState, PointerEvent as ReactPointerEvent } from 'react'
 import { WheelEntry, DisplayMode } from '@/types/wheel'
 import { ThemePreset } from '@/types/wheel'
+import { useWheelStore } from '@/store/wheelStore'
 import { sliceDegrees, degreesToRadians, angleToEntryIndex } from '@/lib/wheelMath'
 import { getSliceColor } from '@/lib/colorUtils'
 
@@ -56,6 +57,9 @@ export default function WheelCanvas({
   editMode = false,
   onReorder,
 }: Props) {
+  const wheelMode = useWheelStore(s => s.wheelMode)
+  const emptyStateText = wheelMode === 'spin-for-prize' ? 'Add prizes to spin' : 'Add names to spin'
+
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const imagesRef = useRef<Map<string, HTMLImageElement>>(new Map())
   const bgImageRef = useRef<HTMLImageElement | null>(null)
@@ -162,7 +166,7 @@ export default function WheelCanvas({
       ctx.font = '16px system-ui'
       ctx.textAlign = 'center'
       ctx.textBaseline = 'middle'
-      ctx.fillText('Add entries to spin!', cx, cy)
+      ctx.fillText(emptyStateText, cx, cy)
       return
     }
 
@@ -268,7 +272,7 @@ export default function WheelCanvas({
     ctx.fillStyle = theme.pointerColor
     ctx.fill()
     ctx.restore()
-  }, [entries, currentAngle, theme, displayMode, winnerIndex, editMode, draggedId])
+  }, [entries, currentAngle, theme, displayMode, winnerIndex, editMode, draggedId, emptyStateText])
 
   useEffect(() => {
     draw()

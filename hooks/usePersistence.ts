@@ -18,7 +18,7 @@ export function usePersistence(): void {
     void hydrateOnMount()
 
     const unsubscribe = useWheelStore.subscribe(
-      (s) => [s.config, s.history, s.autoRemoveWinner] as const,
+      (s) => [s.config, s.history, s.autoRemoveWinner, s.wheelMode] as const,
       () => {
         if (isReady()) scheduleSave()
       },

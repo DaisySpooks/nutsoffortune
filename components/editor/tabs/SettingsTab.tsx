@@ -2,6 +2,7 @@
 
 import { useWheelStore } from '@/store/wheelStore'
 import { THEME_PRESETS, DISPLAY_MODES } from '@/lib/constants'
+import { WheelMode } from '@/types/wheel'
 import { clsx } from 'clsx'
 import Slider from '@/components/ui/Slider'
 import Toggle from '@/components/ui/Toggle'
@@ -13,12 +14,14 @@ const DURATION_STEP = 500
 export default function SettingsTab() {
   const {
     config,
+    wheelMode,
     autoRemoveWinner,
     setDisplayMode,
     setTheme,
     updateSpin,
     updateSounds,
     setAutoRemoveWinner,
+    setWheelMode,
   } = useWheelStore()
 
   const { displayMode, themeId, spin, sounds } = config
@@ -32,8 +35,44 @@ export default function SettingsTab() {
     updateSpin({ maxDuration: v, minDuration: Math.min(v, spin.minDuration) })
   }
 
+  const WHEEL_MODES: { value: WheelMode; label: string; description: string }[] = [
+    { value: 'pick-winner', label: 'Pick a Winner', description: 'Spin to select a person' },
+    { value: 'spin-for-prize', label: 'Spin for a Prize', description: 'Spin to reveal a prize' },
+  ]
+
   return (
     <div className="flex flex-col gap-6 p-4">
+
+      {/* ── Wheel mode ── */}
+      <section className="flex flex-col gap-2.5">
+        <h3 className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--gold)]">
+          Wheel mode
+        </h3>
+        <div className="grid grid-cols-2 gap-2">
+          {WHEEL_MODES.map(mode => (
+            <button
+              key={mode.value}
+              onClick={() => setWheelMode(mode.value)}
+              className={clsx(
+                'flex flex-col gap-0.5 rounded-lg px-3 py-2 border transition-colors text-left',
+                wheelMode === mode.value
+                  ? 'border-[var(--border-accent)] bg-[var(--panel-raised)]'
+                  : 'border-[var(--border)] hover:border-[var(--border-mid)]'
+              )}
+            >
+              <span className={clsx(
+                'text-sm font-medium leading-snug',
+                wheelMode === mode.value ? 'text-[var(--gold)]' : 'text-[var(--text)]'
+              )}>
+                {mode.label}
+              </span>
+              <span className="text-[11px] text-[var(--muted)] leading-tight">
+                {mode.description}
+              </span>
+            </button>
+          ))}
+        </div>
+      </section>
 
       {/* ── Display mode ── */}
       <section className="flex flex-col gap-2.5">
@@ -135,7 +174,7 @@ export default function SettingsTab() {
         <Toggle
           checked={autoRemoveWinner}
           onChange={setAutoRemoveWinner}
-          label="Remove the winner from the wheel"
+          label={wheelMode === 'spin-for-prize' ? 'Remove the prize from the wheel' : 'Remove the winner from the wheel'}
         />
       </section>
 

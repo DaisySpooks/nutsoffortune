@@ -1,4 +1,5 @@
 export type DisplayMode = 'text-only' | 'image-text' | 'image-full' | 'image-full-text'
+export type WheelMode = 'pick-winner' | 'spin-for-prize'
 
 export interface WheelEntry {
   id: string
@@ -57,6 +58,7 @@ export interface StoredWheel {
   config: WheelConfig
   history: WinnerRecord[]
   autoRemoveWinner: boolean
+  wheelMode: WheelMode
   createdAt: number
   updatedAt: number
 }

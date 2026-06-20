@@ -3,7 +3,7 @@
 import { create } from 'zustand'
 import { subscribeWithSelector } from 'zustand/middleware'
 import { immer } from 'zustand/middleware/immer'
-import { WheelConfig, WheelEntry, WinnerRecord, WheelMeta, DisplayMode } from '@/types/wheel'
+import { WheelConfig, WheelEntry, WinnerRecord, WheelMeta, DisplayMode, WheelMode } from '@/types/wheel'
 import { DEFAULT_WHEEL_CONFIG } from '@/lib/constants'
 import { v4 as uuid } from 'uuid'
 
@@ -18,6 +18,7 @@ interface WheelStore {
   showWinnerModal: boolean
 
   // Options
+  wheelMode: WheelMode
   autoRemoveWinner: boolean
   predeterminedWinnerId: string | null
   isPredeterminedMode: boolean
@@ -54,6 +55,7 @@ interface WheelStore {
   setShowWinnerModal: (v: boolean) => void
 
   // Option toggles
+  setWheelMode: (mode: WheelMode) => void
   setAutoRemoveWinner: (v: boolean) => void
   setPredeterminedWinnerId: (id: string | null) => void
   setIsPredeterminedMode: (v: boolean) => void
@@ -66,7 +68,7 @@ interface WheelStore {
 
   // Persistence actions
   loadConfig: (config: WheelConfig) => void
-  loadWheel: (payload: { config: WheelConfig; history: WinnerRecord[]; autoRemoveWinner: boolean }) => void
+  loadWheel: (payload: { config: WheelConfig; history: WinnerRecord[]; autoRemoveWinner: boolean; wheelMode: WheelMode }) => void
   setSavedWheels: (meta: WheelMeta[]) => void
 }
 
@@ -78,6 +80,7 @@ export const useWheelStore = create<WheelStore>()(
     currentAngle: 0,
     winner: null,
     showWinnerModal: false,
+    wheelMode: 'pick-winner' as WheelMode,
     autoRemoveWinner: false,
     predeterminedWinnerId: null,
     isPredeterminedMode: false,
@@ -150,6 +153,9 @@ export const useWheelStore = create<WheelStore>()(
     setShowWinnerModal: (v) =>
       set((s) => { s.showWinnerModal = v }),
 
+    setWheelMode: (mode) =>
+      set((s) => { s.wheelMode = mode }),
+
     setAutoRemoveWinner: (v) =>
       set((s) => { s.autoRemoveWinner = v }),
 
@@ -179,6 +185,7 @@ export const useWheelStore = create<WheelStore>()(
         s.config = payload.config
         s.history = payload.history
         s.autoRemoveWinner = payload.autoRemoveWinner
+        s.wheelMode = payload.wheelMode
         // Reset transient spin state for the freshly loaded wheel.
         s.winner = null
         s.currentAngle = 0

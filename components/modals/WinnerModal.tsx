@@ -15,7 +15,8 @@ interface Props {
  * actions, so it adds no new behaviour beyond surfacing the result.
  */
 export default function WinnerModal({ onSpinAgain }: Props) {
-  const { winner, showWinnerModal, setShowWinnerModal, removeEntry, config } = useWheelStore()
+  const { winner, showWinnerModal, setShowWinnerModal, removeEntry, config, wheelMode } = useWheelStore()
+  const isPrizeMode = wheelMode === 'spin-for-prize'
 
   const close = () => setShowWinnerModal(false)
 
@@ -25,7 +26,7 @@ export default function WinnerModal({ onSpinAgain }: Props) {
   const canSpinAgain = config.entries.length >= 2
 
   return (
-    <Modal open={showWinnerModal} onClose={close} title="We have a winner!" width="max-w-sm">
+    <Modal open={showWinnerModal} onClose={close} title={isPrizeMode ? 'You landed on' : 'We have a winner!'} width="max-w-sm">
       <div className="flex flex-col items-center gap-4 text-center">
         {winner.imageUrl && (
           <img
@@ -54,7 +55,7 @@ export default function WinnerModal({ onSpinAgain }: Props) {
               className="flex-1"
               onClick={() => { removeEntry(winner.id); close() }}
             >
-              Remove from wheel
+              {isPrizeMode ? 'Remove Prize' : 'Remove Winner'}
             </Button>
           )}
         </div>

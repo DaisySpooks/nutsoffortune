@@ -117,6 +117,7 @@ export async function saveCurrentWheel(): Promise<void> {
       config: { ...s.config, entries: stripEntryUrls(s.config.entries) },
       history: s.history.map(h => ({ ...h, imageUrl: null })),
       autoRemoveWinner: s.autoRemoveWinner,
+      wheelMode: s.wheelMode,
       createdAt: prev?.createdAt ?? now,
       updatedAt: now,
     }
@@ -153,6 +154,7 @@ export async function loadWheelById(id: string): Promise<boolean> {
       config,
       history: rec.history,
       autoRemoveWinner: rec.autoRemoveWinner,
+      wheelMode: rec.wheelMode ?? 'pick-winner',
     })
     writeCurrentId(id)
     await refreshMeta()
@@ -178,7 +180,7 @@ export async function createNewWheel(): Promise<void> {
     sounds: { enabled: true, volume: 0.6 },
     spin: { minDuration: 4000, maxDuration: 8000 },
   }
-  useWheelStore.getState().loadWheel({ config, history: [], autoRemoveWinner: false })
+  useWheelStore.getState().loadWheel({ config, history: [], autoRemoveWinner: false, wheelMode: 'pick-winner' })
   await saveCurrentWheel()
 }
 
@@ -200,6 +202,7 @@ export async function duplicateCurrentWheel(): Promise<void> {
       config: { ...s.config, id: newId, name: copyName, entries: stripEntryUrls(s.config.entries) },
       history: [],
       autoRemoveWinner: s.autoRemoveWinner,
+      wheelMode: s.wheelMode,
       createdAt: now,
       updatedAt: now,
     }
