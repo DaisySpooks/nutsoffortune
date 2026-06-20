@@ -61,6 +61,11 @@ export interface StoredWheel {
   wheelMode: WheelMode
   createdAt: number
   updatedAt: number
+  // Full entry list at the time the wheel was first loaded/created. Stored
+  // separately so autosave of reduced entries (via auto-remove) cannot clobber
+  // it. Absent on wheels saved before this field was introduced; those fall
+  // back to using config.entries as the snapshot on first load.
+  originalEntries?: WheelEntry[]
 }
 
 export interface WheelFile {

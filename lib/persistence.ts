@@ -120,6 +120,12 @@ export async function saveCurrentWheel(): Promise<void> {
       wheelMode: s.wheelMode,
       createdAt: prev?.createdAt ?? now,
       updatedAt: now,
+      // Preserve the original snapshot independently of current entries so that
+      // auto-remove spins (which shrink config.entries and trigger autosave)
+      // cannot overwrite the full list the user wants to be able to restore.
+      originalEntries: s.originalEntries
+        ? stripEntryUrls(s.originalEntries)
+        : undefined,
     }
 
     await db.putWheelRecord(record)
@@ -150,11 +156,19 @@ export async function loadWheelById(id: string): Promise<boolean> {
     const entries = await hydrateEntryUrls(rec.config.entries)
     const config: WheelConfig = { ...rec.config, entries }
 
+    // Hydrate the persisted original snapshot when present. For legacy wheels
+    // that predate this field, pass undefined so loadWheel falls back to the
+    // current entries as the snapshot (first-load behaviour).
+    const originalEntries = rec.originalEntries
+      ? await hydrateEntryUrls(rec.originalEntries)
+      : undefined
+
     useWheelStore.getState().loadWheel({
       config,
       history: rec.history,
       autoRemoveWinner: rec.autoRemoveWinner,
       wheelMode: rec.wheelMode ?? 'pick-winner',
+      originalEntries,
     })
     writeCurrentId(id)
     await refreshMeta()
@@ -205,6 +219,7 @@ export async function duplicateCurrentWheel(): Promise<void> {
       wheelMode: s.wheelMode,
       createdAt: now,
       updatedAt: now,
+      originalEntries: s.originalEntries ? stripEntryUrls(s.originalEntries) : undefined,
     }
 
     await db.putWheelRecord(record)

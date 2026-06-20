@@ -69,7 +69,7 @@ export function useSpin() {
     // second (duplicate) removal. When auto-remove is off the winner stays on
     // the wheel (and highlighted) until the user removes it from the modal.
     if (store.autoRemoveWinner) {
-      store.removeEntry(winner.id)
+      store.autoRemoveEntry(winner.id)
     }
   }, [])
 

@@ -183,8 +183,13 @@ function makeRow(): BulkRow {
 // ─── component ───────────────────────────────────────────────────────────────
 
 export default function EntriesTab() {
-  const { config, addEntries, clearEntries, setEntries } = useWheelStore()
+  const { config, addEntries, clearEntries, setEntries, originalEntries, restoreOriginalEntries } = useWheelStore()
   const entries = config.entries
+
+  const canRestore = originalEntries !== null && (
+    entries.length !== originalEntries.length ||
+    entries.some((e, i) => e.id !== originalEntries![i]?.id)
+  )
 
   const [useFilenames, setUseFilenames] = useState(true)
   const [showBulk, setShowBulk] = useState(false)
@@ -298,6 +303,18 @@ export default function EntriesTab() {
             Bulk add
           </Button>
         </div>
+      )}
+
+      {/* Restore snapshot */}
+      {canRestore && (
+        <Button
+          size="sm"
+          variant="secondary"
+          onClick={restoreOriginalEntries}
+          title="Restore the wheel to the full entry list from when it was last loaded"
+        >
+          Restore Original Entries
+        </Button>
       )}
 
       {/* Bulk add form */}

@@ -31,14 +31,21 @@ interface WheelStore {
   // Saved wheels metadata
   savedWheels: WheelMeta[]
 
+  // Snapshot of entries at last load — null when no wheel has been loaded or wheel was new
+  originalEntries: WheelEntry[] | null
+
   // Entry actions
   addEntries: (entries: WheelEntry[]) => void
   setEntries: (entries: WheelEntry[]) => void
   insertEntriesAfter: (afterId: string, entries: WheelEntry[]) => void
   updateEntry: (id: string, patch: Partial<WheelEntry>) => void
   removeEntry: (id: string) => void
+  // Removes an entry without updating originalEntries — used only by auto-remove
+  // so the snapshot of the user's intended wheel is preserved across spins.
+  autoRemoveEntry: (id: string) => void
   reorderEntries: (fromIndex: number, toIndex: number) => void
   clearEntries: () => void
+  restoreOriginalEntries: () => void
 
   // Config actions
   setDisplayMode: (mode: DisplayMode) => void
@@ -68,7 +75,7 @@ interface WheelStore {
 
   // Persistence actions
   loadConfig: (config: WheelConfig) => void
-  loadWheel: (payload: { config: WheelConfig; history: WinnerRecord[]; autoRemoveWinner: boolean; wheelMode: WheelMode }) => void
+  loadWheel: (payload: { config: WheelConfig; history: WinnerRecord[]; autoRemoveWinner: boolean; wheelMode: WheelMode; originalEntries?: WheelEntry[] }) => void
   setSavedWheels: (meta: WheelMeta[]) => void
 }
 
@@ -88,29 +95,51 @@ export const useWheelStore = create<WheelStore>()(
     showHistory: false,
     history: [],
     savedWheels: [],
+    originalEntries: null,
 
     addEntries: (entries) =>
-      set((s) => { s.config.entries.push(...entries) }),
+      set((s) => {
+        s.config.entries.push(...entries)
+        s.originalEntries = [...s.config.entries]
+      }),
 
     setEntries: (entries) =>
-      set((s) => { s.config.entries = entries }),
+      set((s) => {
+        s.config.entries = entries
+        s.originalEntries = entries.length > 0 ? [...entries] : null
+      }),
 
     insertEntriesAfter: (afterId, newEntries) =>
       set((s) => {
         const idx = s.config.entries.findIndex(e => e.id === afterId)
         const pos = idx === -1 ? s.config.entries.length : idx + 1
         s.config.entries.splice(pos, 0, ...newEntries)
+        s.originalEntries = [...s.config.entries]
       }),
 
     updateEntry: (id, patch) =>
       set((s) => {
         const idx = s.config.entries.findIndex(e => e.id === id)
         if (idx !== -1) Object.assign(s.config.entries[idx], patch)
+        // Mirror the patch into originalEntries so renames/image changes are
+        // reflected when the user later restores.
+        if (s.originalEntries) {
+          const origIdx = s.originalEntries.findIndex(e => e.id === id)
+          if (origIdx !== -1) Object.assign(s.originalEntries[origIdx], patch)
+        }
       }),
 
     removeEntry: (id) =>
       set((s) => {
         s.config.entries = s.config.entries.filter(e => e.id !== id)
+        s.originalEntries = s.config.entries.length > 0 ? [...s.config.entries] : null
+      }),
+
+    autoRemoveEntry: (id) =>
+      set((s) => {
+        s.config.entries = s.config.entries.filter(e => e.id !== id)
+        // originalEntries intentionally left unchanged — this is the spin auto-remove
+        // path, not a user edit. The snapshot must stay intact so the user can restore.
       }),
 
     reorderEntries: (fromIndex, toIndex) =>
@@ -118,10 +147,16 @@ export const useWheelStore = create<WheelStore>()(
         const entries = s.config.entries
         const [moved] = entries.splice(fromIndex, 1)
         entries.splice(toIndex, 0, moved)
+        s.originalEntries = [...s.config.entries]
       }),
 
     clearEntries: () =>
-      set((s) => { s.config.entries = [] }),
+      set((s) => { s.config.entries = []; s.originalEntries = null }),
+
+    restoreOriginalEntries: () =>
+      set((s) => {
+        if (s.originalEntries) s.config.entries = [...s.originalEntries]
+      }),
 
     setDisplayMode: (mode) =>
       set((s) => { s.config.displayMode = mode }),
@@ -186,6 +221,10 @@ export const useWheelStore = create<WheelStore>()(
         s.history = payload.history
         s.autoRemoveWinner = payload.autoRemoveWinner
         s.wheelMode = payload.wheelMode
+        // Use the explicitly passed snapshot when available (preserved across
+        // autosaves). Fall back to the loaded entries for new/legacy wheels.
+        const snap = payload.originalEntries ?? payload.config.entries
+        s.originalEntries = snap.length > 0 ? [...snap] : null
         // Reset transient spin state for the freshly loaded wheel.
         s.winner = null
         s.currentAngle = 0
