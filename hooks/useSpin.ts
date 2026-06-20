@@ -26,6 +26,10 @@ function createTickAudio() {
  * winner via the pure helpers in lib/wheelMath. All wheel-landing math lives in
  * wheelMath; this hook only owns the animation loop and the result side-effects.
  */
+// Minimum ms between ticks — caps the rate when there are many entries so
+// slice crossings don't create machine-gun bursts at high speed.
+const MIN_TICK_MS = 60
+
 export function useSpin() {
   const rafRef = useRef<number | null>(null)
   const audioRef = useRef<HTMLAudioElement | null>(null)
@@ -85,6 +89,8 @@ export function useSpin() {
     store.setWinner(null)
     store.setShowWinnerModal(false)
     store.setIsSpinning(true)
+
+    const startAngle = currentAngle
     lastSliceIdRef.current = null
     lastTickTimeRef.current = 0
 
@@ -100,8 +106,6 @@ export function useSpin() {
     } else {
       targetAngle = randomTargetAngle(currentAngle)
     }
-
-    const startAngle = currentAngle
     const { minDuration, maxDuration } = config.spin
     const span = Math.max(0, maxDuration - minDuration)
     const duration = Math.max(1, minDuration + Math.random() * span)
@@ -112,11 +116,12 @@ export function useSpin() {
       const angle = startAngle + (targetAngle - startAngle) * easeOutCubic(t)
       useWheelStore.getState().setCurrentAngle(angle)
 
-      // Tick sound: fire when the pointer crosses into a new slice.
+      // Tick sound: fire on each new slice boundary, capped at MIN_TICK_MS so
+      // many entries don't produce machine-gun bursts at high speed.
       const currentEntries = useWheelStore.getState().config.entries
       if (currentEntries.length > 0) {
         const sliceId = detectWinner(angle, currentEntries).id
-        if (sliceId !== lastSliceIdRef.current && now - lastTickTimeRef.current > 40) {
+        if (sliceId !== lastSliceIdRef.current && now - lastTickTimeRef.current > MIN_TICK_MS) {
           lastSliceIdRef.current = sliceId
           lastTickTimeRef.current = now
           const audio = audioRef.current
