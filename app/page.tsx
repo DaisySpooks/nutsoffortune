@@ -34,6 +34,7 @@ export default function Home() {
 
   // Desktop direct-wheel editing — desktop only, never while spinning.
   const isDesktop = useMediaQuery('(min-width: 1024px)')
+  const isWideDesktop = useMediaQuery('(min-width: 1600px)')
   const [editMode, setEditMode] = useState(false)
   const [presentationMode, setPresentationMode] = useState(false)
   const canEdit = editMode && isDesktop && !isSpinning
@@ -88,7 +89,7 @@ export default function Home() {
               style={{
                 width: '100%',
                 height: '100%',
-                transform: presentationMode ? 'scale(0.923)' : 'scale(1)',
+                transform: presentationMode ? 'scale(0.923)' : isWideDesktop ? 'scale(0.857)' : 'scale(1)',
                 transition: 'transform 0.6s cubic-bezier(0.22, 1, 0.36, 1)',
                 transformOrigin: 'center center',
               }}
@@ -160,7 +161,7 @@ export default function Home() {
             {isDesktop && (
               <div
                 className="w-full"
-                style={{ maxWidth: 'min(90vw, 90vh, 560px)', aspectRatio: '1 / 1', visibility: 'hidden', pointerEvents: 'none' }}
+                style={{ maxWidth: isWideDesktop ? 'min(90vw, 90vh, 480px)' : 'min(90vw, 90vh, 560px)', aspectRatio: '1 / 1', visibility: 'hidden', pointerEvents: 'none' }}
               />
             )}
 
