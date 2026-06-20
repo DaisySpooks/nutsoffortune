@@ -18,7 +18,7 @@ import WinnerModal from '@/components/modals/WinnerModal'
 // section center when the background is cover+center. Y is 38.5% because
 // height drives cover at all desktop viewports, keeping the circle at a
 // constant fraction of section height regardless of viewport width.
-const PM_LEFT = 'calc(50% + 190px)'
+const PM_LEFT = 'calc(50vw + 190px)'
 const PM_TOP = '38.5%'
 // Half-wheel width, matching the min() size rule — used to place the spin
 // button just below the wheel bottom.
@@ -63,41 +63,63 @@ export default function Home() {
             'radial-gradient(ellipse at center, rgba(0,0,0,0.45) 0%, rgba(0,0,0,0.72) 100%), url(/backgrounds/wheel-room.png)',
           backgroundSize: 'cover',
           backgroundPosition: presentationMode ? 'center' : 'calc((100vw - 420px) / 2 - 113.3vh) 80px',
-          transition: 'background-position 0.4s ease',
+          transition: 'background-position 0.6s cubic-bezier(0.22, 1, 0.36, 1)',
         }}
       >
         <h1 className="text-2xl font-bold text-[var(--gold)] mb-5 tracking-[0.12em] uppercase text-glow">
           {config.name}
         </h1>
 
-        {/* ── Presentation mode: wheel anchored to the lounge circle focal point ── */}
+        {/* ── Desktop: single wheel, always absolutely positioned, animates between anchors ── */}
+        {isDesktop && (
+          <div
+            className="wheel-seat glow-ring rounded-full p-1.5"
+            style={{
+              position: 'absolute',
+              left: presentationMode ? PM_LEFT : 'calc(50vw - 210px)',
+              top: presentationMode ? PM_TOP : 'calc(50% - 31px)',
+              width: presentationMode ? 'min(48vw, 66vh, 520px)' : 'min(90vw, 90vh, 560px)',
+              aspectRatio: '1 / 1',
+              transform: 'translate(-50%, -50%)',
+              transition: 'left 0.6s cubic-bezier(0.22, 1, 0.36, 1), top 0.6s cubic-bezier(0.22, 1, 0.36, 1), width 0.6s cubic-bezier(0.22, 1, 0.36, 1)',
+            }}
+          >
+            <WheelPointer color={theme.pointerColor} />
+            <WheelCanvas
+              entries={entries}
+              currentAngle={currentAngle}
+              theme={theme}
+              displayMode={config.displayMode}
+              winnerIndex={winnerIndex}
+              backgroundUrl={null}
+              editMode={canEdit}
+              onReorder={reorderEntries}
+            />
+          </div>
+        )}
+
+        {/* ── Mobile: wheel in normal flex flow ── */}
+        {!isDesktop && (
+          <div
+            className="wheel-seat glow-ring relative aspect-square w-full rounded-full p-1.5"
+            style={{ maxWidth: 'min(90vw, 90vh, 560px)' }}
+          >
+            <WheelPointer color={theme.pointerColor} />
+            <WheelCanvas
+              entries={entries}
+              currentAngle={currentAngle}
+              theme={theme}
+              displayMode={config.displayMode}
+              winnerIndex={winnerIndex}
+              backgroundUrl={null}
+              editMode={false}
+              onReorder={reorderEntries}
+            />
+          </div>
+        )}
+
         {presentationMode ? (
           <>
-            {/* Wheel pinned to focal point — absolute so it doesn't affect flow */}
-            <div
-              className="wheel-seat glow-ring rounded-full p-1.5"
-              style={{
-                position: 'absolute',
-                left: PM_LEFT,
-                top: PM_TOP,
-                width: 'min(48vw, 66vh, 520px)',
-                aspectRatio: '1 / 1',
-                transform: 'translate(-50%, -50%)',
-              }}
-            >
-              <WheelPointer color={theme.pointerColor} />
-              <WheelCanvas
-                entries={entries}
-                currentAngle={currentAngle}
-                theme={theme}
-                displayMode={config.displayMode}
-                winnerIndex={winnerIndex}
-                backgroundUrl={null}
-                editMode={false}
-                onReorder={reorderEntries}
-              />
-            </div>
-
             {/* Spin button anchored just below the wheel */}
             <div
               className="absolute"
@@ -123,25 +145,14 @@ export default function Home() {
             </button>
           </>
         ) : (
-          /* ── Editor mode: original flex-flow layout, unchanged ── */
           <>
-            {/* Wheel + pointer container — gold ring frame with soft orange glow */}
-            <div
-              className="wheel-seat glow-ring relative aspect-square w-full rounded-full p-1.5"
-              style={{ maxWidth: 'min(90vw, 90vh, 560px)' }}
-            >
-              <WheelPointer color={theme.pointerColor} />
-              <WheelCanvas
-                entries={entries}
-                currentAngle={currentAngle}
-                theme={theme}
-                displayMode={config.displayMode}
-                winnerIndex={winnerIndex}
-                backgroundUrl={null}
-                editMode={canEdit}
-                onReorder={reorderEntries}
+            {/* Desktop placeholder — invisible, keeps flex flow spacing identical to before */}
+            {isDesktop && (
+              <div
+                className="w-full"
+                style={{ maxWidth: 'min(90vw, 90vh, 560px)', aspectRatio: '1 / 1', visibility: 'hidden', pointerEvents: 'none' }}
               />
-            </div>
+            )}
 
             <SpinButton
               isSpinning={isSpinning}
