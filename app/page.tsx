@@ -37,6 +37,7 @@ export default function Home() {
   const isWideDesktop = useMediaQuery('(min-width: 1600px)')
   const [editMode, setEditMode] = useState(false)
   const [presentationMode, setPresentationMode] = useState(false)
+  const [videoLoaded, setVideoLoaded] = useState(false)
   const canEdit = editMode && isDesktop && !isSpinning
 
   function enterPresentation() {
@@ -60,13 +61,44 @@ export default function Home() {
           presentationMode ? 'pt-5' : 'justify-center p-6'
         )}
         style={{
-          backgroundImage:
-            'radial-gradient(ellipse at center, rgba(0,0,0,0.45) 0%, rgba(0,0,0,0.72) 100%), url(/backgrounds/wheel-room.png)',
+          backgroundImage: 'url(/backgrounds/wheel-room.png)',
           backgroundSize: 'cover',
           backgroundPosition: presentationMode ? 'center' : 'calc((100vw - 420px) / 2 - 113.3vh) 80px',
-          transition: 'background-position 0.6s cubic-bezier(0.22, 1, 0.36, 1)',
         }}
       >
+        {/* Animated video background — sits behind all content via DOM order */}
+        <video
+          src="/backgrounds/wheel-room-loop.mp4"
+          poster="/backgrounds/wheel-room.png"
+          autoPlay
+          muted
+          loop
+          playsInline
+          aria-hidden="true"
+          onCanPlay={() => setVideoLoaded(true)}
+          style={{
+            position: 'absolute',
+            inset: 0,
+            width: '100%',
+            height: '100%',
+            objectFit: 'cover',
+            objectPosition: presentationMode ? 'center' : 'calc((100vw - 420px) / 2 - 113.3vh) 80px',
+            transition: 'opacity 0.6s ease, object-position 0.6s cubic-bezier(0.22, 1, 0.36, 1)',
+            opacity: videoLoaded ? 1 : 0,
+            pointerEvents: 'none',
+          }}
+        />
+        {/* Dark radial overlay — sits above video, below all wheel content */}
+        <div
+          aria-hidden="true"
+          style={{
+            position: 'absolute',
+            inset: 0,
+            background: 'radial-gradient(ellipse at center, rgba(0,0,0,0.45) 0%, rgba(0,0,0,0.72) 100%)',
+            pointerEvents: 'none',
+          }}
+        />
+
         <h1 className="text-2xl font-bold text-[var(--gold)] mb-5 tracking-[0.12em] uppercase text-glow">
           {config.name}
         </h1>
