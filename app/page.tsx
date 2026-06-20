@@ -45,8 +45,8 @@ export default function Home() {
         style={{
           backgroundImage:
             'radial-gradient(ellipse at center, rgba(0,0,0,0.45) 0%, rgba(0,0,0,0.72) 100%), url(/backgrounds/wheel-room.png)',
-          backgroundSize: presentationMode ? 'cover' : '120%',
-          backgroundPosition: presentationMode ? 'center' : '0% 50%',
+          backgroundSize: 'cover',
+          backgroundPosition: presentationMode ? 'center' : '86% 80px',
           transition: 'background-position 0.4s ease',
         }}
       >
@@ -56,7 +56,7 @@ export default function Home() {
 
         {/* Wheel + pointer container — gold ring frame with soft orange glow */}
         <div
-          className="wheel-seat glow-ring relative aspect-square w-full p-1.5"
+          className="wheel-seat glow-ring relative aspect-square w-full rounded-full p-1.5"
           style={{
             maxWidth: presentationMode
               ? 'min(48vw, 66vh, 520px)'
@@ -114,9 +114,9 @@ export default function Home() {
         )}
 
         {winner && (
-          <div className="mt-3 text-center">
+          <div className="absolute bottom-5 left-1/2 -translate-x-1/2 text-center pointer-events-none">
             <p className="text-xs uppercase tracking-[0.2em] text-[var(--muted)]">Winner</p>
-            <p className="text-xl font-bold text-[var(--gold)] text-glow">{winner.name}</p>
+            <p className="text-xl font-bold text-[var(--gold)] text-glow whitespace-nowrap">{winner.name}</p>
           </div>
         )}
       </section>

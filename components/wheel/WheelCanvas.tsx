@@ -148,9 +148,13 @@ export default function WheelCanvas({
       ctx.drawImage(bgImageRef.current, 0, 0, size, size)
       ctx.restore()
     } else {
-      // App-chrome backdrop behind the wedges (warm near-black) — NOT a slice color.
+      // Circular backdrop behind the wedges — corners stay transparent.
+      ctx.save()
+      ctx.beginPath()
+      ctx.arc(cx, cy, radius, 0, Math.PI * 2)
       ctx.fillStyle = '#160e09'
-      ctx.fillRect(0, 0, size, size)
+      ctx.fill()
+      ctx.restore()
     }
 
     if (entries.length === 0) {
