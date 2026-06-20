@@ -73,28 +73,38 @@ export default function Home() {
         {/* ── Desktop: single wheel, always absolutely positioned, animates between anchors ── */}
         {isDesktop && (
           <div
-            className="wheel-seat glow-ring rounded-full p-1.5"
             style={{
               position: 'absolute',
               left: presentationMode ? PM_LEFT : 'calc(50vw - 210px)',
               top: presentationMode ? PM_TOP : 'calc(50% - 31px)',
-              width: presentationMode ? 'min(48vw, 66vh, 520px)' : 'min(90vw, 90vh, 560px)',
+              width: 'min(90vw, 90vh, 560px)',
               aspectRatio: '1 / 1',
               transform: 'translate(-50%, -50%)',
-              transition: 'left 0.6s cubic-bezier(0.22, 1, 0.36, 1), top 0.6s cubic-bezier(0.22, 1, 0.36, 1), width 0.6s cubic-bezier(0.22, 1, 0.36, 1)',
+              transition: 'left 0.6s cubic-bezier(0.22, 1, 0.36, 1), top 0.6s cubic-bezier(0.22, 1, 0.36, 1)',
             }}
           >
-            <WheelPointer color={theme.pointerColor} />
-            <WheelCanvas
-              entries={entries}
-              currentAngle={currentAngle}
-              theme={theme}
-              displayMode={config.displayMode}
-              winnerIndex={winnerIndex}
-              backgroundUrl={null}
-              editMode={canEdit}
-              onReorder={reorderEntries}
-            />
+            <div
+              className="wheel-seat glow-ring rounded-full p-1.5"
+              style={{
+                width: '100%',
+                height: '100%',
+                transform: presentationMode ? 'scale(0.923)' : 'scale(1)',
+                transition: 'transform 0.6s cubic-bezier(0.22, 1, 0.36, 1)',
+                transformOrigin: 'center center',
+              }}
+            >
+              <WheelPointer color={theme.pointerColor} />
+              <WheelCanvas
+                entries={entries}
+                currentAngle={currentAngle}
+                theme={theme}
+                displayMode={config.displayMode}
+                winnerIndex={winnerIndex}
+                backgroundUrl={null}
+                editMode={canEdit}
+                onReorder={reorderEntries}
+              />
+            </div>
           </div>
         )}
 
@@ -186,9 +196,18 @@ export default function Home() {
         )}
       </section>
 
-      {/* Editor aside — hidden in presentation mode on desktop */}
-      {(!presentationMode || !isDesktop) && (
-        <aside className="w-full lg:w-[420px] lg:h-full border-t border-[var(--border-mid)] lg:border-t-0 lg:border-l border-[var(--border-mid)] bg-[var(--panel)] flex flex-col">
+      {/* Editor aside — always mounted on desktop so width can animate smoothly */}
+      <aside
+        className="w-full lg:h-full border-t border-[var(--border-mid)] lg:border-t-0 lg:border-l border-[var(--border-mid)] bg-[var(--panel)] flex flex-col"
+        style={isDesktop ? {
+          width: presentationMode ? 0 : '420px',
+          flexShrink: 0,
+          overflow: 'hidden',
+          pointerEvents: presentationMode ? 'none' : undefined,
+          transition: 'width 0.6s cubic-bezier(0.22, 1, 0.36, 1)',
+        } : undefined}
+      >
+        <div className="w-full lg:w-[420px]">
           {/* Hide editor button — desktop only, top-right of panel */}
           <div className="hidden lg:flex justify-end px-3 pt-2 pb-0">
             <button
@@ -199,8 +218,8 @@ export default function Home() {
             </button>
           </div>
           <EditorPanel />
-        </aside>
-      )}
+        </div>
+      </aside>
 
       {/* Spin result announcement */}
       <WinnerModal onSpinAgain={spin} />
