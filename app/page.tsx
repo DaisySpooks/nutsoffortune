@@ -13,6 +13,17 @@ import SpinButton from '@/components/wheel/SpinButton'
 import EditorPanel from '@/components/editor/EditorPanel'
 import WinnerModal from '@/components/modals/WinnerModal'
 
+// Presentation-mode focal point — lounge circle center as fractions of the
+// wheel stage. X is (50% + 190px) because the circle sits 190px right of the
+// section center when the background is cover+center. Y is 38.5% because
+// height drives cover at all desktop viewports, keeping the circle at a
+// constant fraction of section height regardless of viewport width.
+const PM_LEFT = 'calc(50% + 190px)'
+const PM_TOP = '38.5%'
+// Half-wheel width, matching the min() size rule — used to place the spin
+// button just below the wheel bottom.
+const PM_HALF_WHEEL = 'min(24vw, 33vh, 260px)'
+
 export default function Home() {
   const { config, currentAngle, winner, isSpinning, reorderEntries } = useWheelStore()
   const theme = getTheme(config.themeId)
@@ -39,9 +50,14 @@ export default function Home() {
 
   return (
     <main className="flex flex-col lg:flex-row lg:h-screen lg:overflow-hidden">
-      {/* Wheel section — fixed height on desktop so it never scrolls off screen */}
+      {/* Wheel section */}
       <section
-        className="wheel-stage relative flex flex-col items-center justify-center flex-1 p-6 min-h-[55vw] lg:min-h-0 lg:overflow-hidden"
+        className={clsx(
+          'wheel-stage relative flex flex-col items-center flex-1 min-h-[55vw] lg:min-h-0 lg:overflow-hidden',
+          // Presentation mode: title floats at top with padding; no justify-center
+          // since wheel and spin button are absolutely positioned.
+          presentationMode ? 'pt-5' : 'justify-center p-6'
+        )}
         style={{
           backgroundImage:
             'radial-gradient(ellipse at center, rgba(0,0,0,0.45) 0%, rgba(0,0,0,0.72) 100%), url(/backgrounds/wheel-room.png)',
@@ -54,65 +70,103 @@ export default function Home() {
           {config.name}
         </h1>
 
-        {/* Wheel + pointer container — gold ring frame with soft orange glow */}
-        <div
-          className="wheel-seat glow-ring relative aspect-square w-full rounded-full p-1.5"
-          style={{
-            maxWidth: presentationMode
-              ? 'min(48vw, 66vh, 520px)'
-              : 'min(90vw, 90vh, 560px)',
-            transform: presentationMode
-              ? 'translate(190px, -80px)'
-              : 'translateX(0)',
-            transition: 'max-width 0.4s ease, transform 0.4s ease',
-          }}
-        >
-          <WheelPointer color={theme.pointerColor} />
-          <WheelCanvas
-            entries={entries}
-            currentAngle={currentAngle}
-            theme={theme}
-            displayMode={config.displayMode}
-            winnerIndex={winnerIndex}
-            backgroundUrl={null}
-            editMode={canEdit}
-            onReorder={reorderEntries}
-          />
-        </div>
+        {/* ── Presentation mode: wheel anchored to the lounge circle focal point ── */}
+        {presentationMode ? (
+          <>
+            {/* Wheel pinned to focal point — absolute so it doesn't affect flow */}
+            <div
+              className="wheel-seat glow-ring rounded-full p-1.5"
+              style={{
+                position: 'absolute',
+                left: PM_LEFT,
+                top: PM_TOP,
+                width: 'min(48vw, 66vh, 520px)',
+                aspectRatio: '1 / 1',
+                transform: 'translate(-50%, -50%)',
+              }}
+            >
+              <WheelPointer color={theme.pointerColor} />
+              <WheelCanvas
+                entries={entries}
+                currentAngle={currentAngle}
+                theme={theme}
+                displayMode={config.displayMode}
+                winnerIndex={winnerIndex}
+                backgroundUrl={null}
+                editMode={false}
+                onReorder={reorderEntries}
+              />
+            </div>
 
-        <SpinButton
-          isSpinning={isSpinning}
-          disabled={entries.length < 2}
-          onSpin={spin}
-        />
+            {/* Spin button anchored just below the wheel */}
+            <div
+              className="absolute"
+              style={{
+                left: PM_LEFT,
+                top: `calc(${PM_TOP} + ${PM_HALF_WHEEL} + 20px)`,
+                transform: 'translateX(-50%)',
+              }}
+            >
+              <SpinButton
+                isSpinning={isSpinning}
+                disabled={entries.length < 2}
+                onSpin={spin}
+              />
+            </div>
 
-        {/* Desktop-only direct-edit toggle — hidden in presentation mode */}
-        {!presentationMode && (
-          <button
-            onClick={() => setEditMode(v => !v)}
-            disabled={isSpinning}
-            className={clsx(
-              'mt-3 hidden lg:inline-flex items-center gap-2 rounded-full px-4 py-1.5 text-xs font-semibold uppercase tracking-wider border transition-colors disabled:opacity-50 disabled:cursor-not-allowed',
-              canEdit
-                ? 'border-[var(--border-accent)] bg-[var(--accent)]/15 text-[var(--gold)] shadow-[0_0_16px_-4px_var(--glow)]'
-                : 'border-[var(--border-mid)] text-[var(--muted)] hover:text-[var(--gold)] hover:border-[var(--border-accent)]'
-            )}
-            aria-pressed={canEdit}
-          >
-            {canEdit ? '✓ Editing wheel — drag slices' : 'Edit wheel'}
-          </button>
+            {/* Show editor — bottom-right corner */}
+            <button
+              onClick={() => setPresentationMode(false)}
+              className="hidden lg:inline-flex absolute bottom-5 right-5 items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold uppercase tracking-wider border border-[var(--border-mid)] text-[var(--muted)] bg-black/40 hover:text-[var(--gold)] hover:border-[var(--border-accent)] transition-colors"
+            >
+              Show editor
+            </button>
+          </>
+        ) : (
+          /* ── Editor mode: original flex-flow layout, unchanged ── */
+          <>
+            {/* Wheel + pointer container — gold ring frame with soft orange glow */}
+            <div
+              className="wheel-seat glow-ring relative aspect-square w-full rounded-full p-1.5"
+              style={{ maxWidth: 'min(90vw, 90vh, 560px)' }}
+            >
+              <WheelPointer color={theme.pointerColor} />
+              <WheelCanvas
+                entries={entries}
+                currentAngle={currentAngle}
+                theme={theme}
+                displayMode={config.displayMode}
+                winnerIndex={winnerIndex}
+                backgroundUrl={null}
+                editMode={canEdit}
+                onReorder={reorderEntries}
+              />
+            </div>
+
+            <SpinButton
+              isSpinning={isSpinning}
+              disabled={entries.length < 2}
+              onSpin={spin}
+            />
+
+            {/* Desktop-only direct-edit toggle */}
+            <button
+              onClick={() => setEditMode(v => !v)}
+              disabled={isSpinning}
+              className={clsx(
+                'mt-3 hidden lg:inline-flex items-center gap-2 rounded-full px-4 py-1.5 text-xs font-semibold uppercase tracking-wider border transition-colors disabled:opacity-50 disabled:cursor-not-allowed',
+                canEdit
+                  ? 'border-[var(--border-accent)] bg-[var(--accent)]/15 text-[var(--gold)] shadow-[0_0_16px_-4px_var(--glow)]'
+                  : 'border-[var(--border-mid)] text-[var(--muted)] hover:text-[var(--gold)] hover:border-[var(--border-accent)]'
+              )}
+              aria-pressed={canEdit}
+            >
+              {canEdit ? '✓ Editing wheel — drag slices' : 'Edit wheel'}
+            </button>
+          </>
         )}
 
-        {/* Show editor button — only visible in presentation mode on desktop */}
-        {presentationMode && (
-          <button
-            onClick={() => setPresentationMode(false)}
-            className="hidden lg:inline-flex absolute bottom-5 right-5 items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold uppercase tracking-wider border border-[var(--border-mid)] text-[var(--muted)] bg-black/40 hover:text-[var(--gold)] hover:border-[var(--border-accent)] transition-colors"
-          >
-            Show editor
-          </button>
-        )}
-
+        {/* Winner label — absolute so it never shifts the wheel position */}
         {winner && (
           <div className="absolute bottom-5 left-1/2 -translate-x-1/2 text-center pointer-events-none">
             <p className="text-xs uppercase tracking-[0.2em] text-[var(--muted)]">Winner</p>
