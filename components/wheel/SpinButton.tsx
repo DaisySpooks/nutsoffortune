@@ -12,7 +12,7 @@ export default function SpinButton({ isSpinning, disabled, onSpin }: Props) {
       onClick={onSpin}
       disabled={disabled || isSpinning}
       className="
-        mt-5 px-12 py-3 rounded-full font-extrabold text-lg tracking-[0.18em] uppercase
+        relative mt-5 px-12 py-3 rounded-full font-extrabold text-lg tracking-[0.18em] uppercase
         bg-gradient-to-b from-[var(--accent-hi)] to-[var(--accent-deep)]
         text-[#2a1606]
         ring-1 ring-inset ring-[#ffd9a0]/40
