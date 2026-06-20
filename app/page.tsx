@@ -62,7 +62,7 @@ export default function Home() {
           backgroundImage:
             'radial-gradient(ellipse at center, rgba(0,0,0,0.45) 0%, rgba(0,0,0,0.72) 100%), url(/backgrounds/wheel-room.png)',
           backgroundSize: 'cover',
-          backgroundPosition: presentationMode ? 'center' : '86% 80px',
+          backgroundPosition: presentationMode ? 'center' : 'calc((100vw - 420px) / 2 - 113.3vh) 80px',
           transition: 'background-position 0.4s ease',
         }}
       >
