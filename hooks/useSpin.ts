@@ -10,6 +10,14 @@ import {
 } from '@/lib/wheelMath'
 import { v4 as uuid } from 'uuid'
 
+function createTickAudio() {
+  if (typeof window === 'undefined') return null
+  const audio = new Audio('/sounds/wheel-tick.mp3')
+  audio.volume = 0.15
+  audio.preload = 'auto'
+  return audio
+}
+
 /**
  * Phase 3 — drives the wheel spin animation.
  *
@@ -20,9 +28,12 @@ import { v4 as uuid } from 'uuid'
  */
 export function useSpin() {
   const rafRef = useRef<number | null>(null)
+  const audioRef = useRef<HTMLAudioElement | null>(null)
+  const lastSliceIdRef = useRef<string | null>(null)
+  const lastTickTimeRef = useRef<number>(0)
 
-  // Cancel any in-flight animation if the component unmounts.
   useEffect(() => {
+    audioRef.current = createTickAudio()
     return () => {
       if (rafRef.current !== null) cancelAnimationFrame(rafRef.current)
     }
@@ -74,6 +85,8 @@ export function useSpin() {
     store.setWinner(null)
     store.setShowWinnerModal(false)
     store.setIsSpinning(true)
+    lastSliceIdRef.current = null
+    lastTickTimeRef.current = 0
 
     // Decide where to land. Predetermined mode steers to a specific entry;
     // otherwise the landing angle is random.
@@ -98,6 +111,21 @@ export function useSpin() {
       const t = Math.min((now - startTime) / duration, 1)
       const angle = startAngle + (targetAngle - startAngle) * easeOutCubic(t)
       useWheelStore.getState().setCurrentAngle(angle)
+
+      // Tick sound: fire when the pointer crosses into a new slice.
+      const currentEntries = useWheelStore.getState().config.entries
+      if (currentEntries.length > 0) {
+        const sliceId = detectWinner(angle, currentEntries).id
+        if (sliceId !== lastSliceIdRef.current && now - lastTickTimeRef.current > 40) {
+          lastSliceIdRef.current = sliceId
+          lastTickTimeRef.current = now
+          const audio = audioRef.current
+          if (audio) {
+            audio.currentTime = 0
+            audio.play().catch(() => { /* autoplay blocked — silently skip */ })
+          }
+        }
+      }
 
       if (t < 1) {
         rafRef.current = requestAnimationFrame(tick)
