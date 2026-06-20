@@ -207,7 +207,7 @@ export default function Home() {
           transition: 'width 0.6s cubic-bezier(0.22, 1, 0.36, 1)',
         } : undefined}
       >
-        <div className="w-full lg:w-[420px]">
+        <div className="w-full lg:w-[420px] h-full flex flex-col min-h-0">
           {/* Hide editor button — desktop only, top-right of panel */}
           <div className="hidden lg:flex justify-end px-3 pt-2 pb-0">
             <button
