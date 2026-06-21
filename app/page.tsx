@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { useWheelStore } from '@/store/wheelStore'
 import { getTheme } from '@/lib/colorUtils'
 import { useSpin } from '@/hooks/useSpin'
@@ -40,9 +40,53 @@ export default function Home() {
   const [videoLoaded, setVideoLoaded] = useState(false)
   const canEdit = editMode && isDesktop && !isSpinning
 
+  const introAudioRef = useRef<HTMLAudioElement | null>(null)
+  const [isIntroPlaying, setIsIntroPlaying] = useState(false)
+  const introVolume = config.sounds.introMusicVolume ?? 0.8
+
+  // Keep the audio volume in sync with the persisted setting.
+  useEffect(() => {
+    if (introAudioRef.current) {
+      introAudioRef.current.volume = introVolume
+    }
+  }, [introVolume])
+
+  function getIntroAudio(): HTMLAudioElement {
+    if (!introAudioRef.current) {
+      const audio = new Audio('/sounds/nuts-of-fortune-intro.mp3')
+      audio.loop = false
+      audio.volume = introVolume
+      audio.addEventListener('ended', () => setIsIntroPlaying(false))
+      introAudioRef.current = audio
+    }
+    return introAudioRef.current
+  }
+
+  function toggleIntro() {
+    if (isIntroPlaying) {
+      const audio = introAudioRef.current
+      if (audio) { audio.pause(); audio.currentTime = 0 }
+      setIsIntroPlaying(false)
+    } else {
+      const audio = getIntroAudio()
+      audio.currentTime = 0
+      audio.play()
+      setIsIntroPlaying(true)
+    }
+  }
+
   function enterPresentation() {
     setEditMode(false)
     setPresentationMode(true)
+  }
+
+  function exitPresentation() {
+    if (introAudioRef.current && isIntroPlaying) {
+      introAudioRef.current.pause()
+      introAudioRef.current.currentTime = 0
+      setIsIntroPlaying(false)
+    }
+    setPresentationMode(false)
   }
 
   const entries = config.entries
@@ -179,9 +223,17 @@ export default function Home() {
               />
             </div>
 
+            {/* Play/Stop Intro — bottom-left corner */}
+            <button
+              onClick={toggleIntro}
+              className="hidden lg:inline-flex absolute bottom-5 left-5 items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold uppercase tracking-wider border border-[var(--border-mid)] text-[var(--muted)] bg-black/40 hover:text-[var(--gold)] hover:border-[var(--border-accent)] transition-colors"
+            >
+              {isIntroPlaying ? 'Stop Intro' : 'Play Intro'}
+            </button>
+
             {/* Show editor — bottom-right corner */}
             <button
-              onClick={() => setPresentationMode(false)}
+              onClick={exitPresentation}
               className="hidden lg:inline-flex absolute bottom-5 right-5 items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold uppercase tracking-wider border border-[var(--border-mid)] text-[var(--muted)] bg-black/40 hover:text-[var(--gold)] hover:border-[var(--border-accent)] transition-colors"
             >
               Show editor

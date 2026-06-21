@@ -199,6 +199,15 @@ export default function SettingsTab() {
             formatValue={v => `${Math.round(v * 100)}%`}
           />
         )}
+        <Slider
+          label="Intro Music Volume"
+          min={0}
+          max={1}
+          step={0.05}
+          value={sounds.introMusicVolume ?? 0.8}
+          onChange={v => updateSounds({ introMusicVolume: v })}
+          formatValue={v => `${Math.round(v * 100)}%`}
+        />
       </section>
 
     </div>

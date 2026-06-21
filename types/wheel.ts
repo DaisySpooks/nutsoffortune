@@ -27,7 +27,7 @@ export interface WheelConfig {
   displayMode: DisplayMode
   themeId: string
   backgroundImageId: string | null
-  sounds: { enabled: boolean; volume: number }
+  sounds: { enabled: boolean; volume: number; introMusicVolume: number }
   spin: { minDuration: number; maxDuration: number }
 }
 

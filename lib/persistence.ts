@@ -191,7 +191,7 @@ export async function createNewWheel(): Promise<void> {
     displayMode: 'text-only',
     themeId: 'classic',
     backgroundImageId: null,
-    sounds: { enabled: true, volume: 0.6 },
+    sounds: { enabled: true, volume: 0.6, introMusicVolume: 0.8 },
     spin: { minDuration: 4000, maxDuration: 8000 },
   }
   useWheelStore.getState().loadWheel({ config, history: [], autoRemoveWinner: false, wheelMode: 'pick-winner' })
