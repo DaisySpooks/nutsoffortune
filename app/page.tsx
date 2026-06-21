@@ -202,21 +202,6 @@ export default function Home() {
               disabled={entries.length < 2}
               onSpin={spin}
             />
-
-            {/* Desktop-only direct-edit toggle */}
-            <button
-              onClick={() => setEditMode(v => !v)}
-              disabled={isSpinning}
-              className={clsx(
-                'mt-3 hidden lg:inline-flex items-center gap-2 rounded-full px-4 py-1.5 text-xs font-semibold uppercase tracking-wider border transition-colors disabled:opacity-50 disabled:cursor-not-allowed',
-                canEdit
-                  ? 'border-[var(--border-accent)] bg-[var(--accent)]/15 text-[var(--gold)] shadow-[0_0_16px_-4px_var(--glow)]'
-                  : 'border-[var(--border-mid)] text-[var(--muted)] hover:text-[var(--gold)] hover:border-[var(--border-accent)]'
-              )}
-              aria-pressed={canEdit}
-            >
-              {canEdit ? '✓ Editing wheel — drag slices' : 'Edit wheel'}
-            </button>
           </>
         )}
 
@@ -250,7 +235,13 @@ export default function Home() {
               Hide editor
             </button>
           </div>
-          <EditorPanel />
+          <EditorPanel
+            editMode={editMode}
+            canEdit={canEdit}
+            isDesktop={isDesktop}
+            isSpinning={isSpinning}
+            onToggleEdit={() => setEditMode(v => !v)}
+          />
         </div>
       </aside>
 
