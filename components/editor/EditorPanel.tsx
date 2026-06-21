@@ -5,8 +5,11 @@ import { clsx } from 'clsx'
 import Tabs from '@/components/ui/Tabs'
 import EntriesTab from './tabs/EntriesTab'
 import SettingsTab from './tabs/SettingsTab'
-import Button from '@/components/ui/Button'
 import WheelManagerModal from '@/components/modals/WheelManagerModal'
+
+const pill = 'inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-wider border transition-colors'
+const pillIdle = 'border-[var(--border-mid)] bg-[var(--panel-raised)] text-[var(--muted)] hover:text-[var(--gold)] hover:border-[var(--border-accent)]'
+const pillActive = 'border-[var(--border-accent)] bg-[var(--accent)]/15 text-[var(--gold)] shadow-[0_0_12px_-4px_var(--glow)]'
 
 interface Props {
   editMode: boolean
@@ -14,34 +17,35 @@ interface Props {
   isDesktop: boolean
   isSpinning: boolean
   onToggleEdit: () => void
+  onHide: () => void
 }
 
-export default function EditorPanel({ editMode, canEdit, isDesktop, isSpinning, onToggleEdit }: Props) {
+export default function EditorPanel({ editMode, canEdit, isDesktop, isSpinning, onToggleEdit, onHide }: Props) {
   const [showManager, setShowManager] = useState(false)
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
       <div className="px-4 py-3 border-b border-[var(--border-mid)] flex items-center justify-between gap-2">
         <h2 className="text-sm font-semibold text-[var(--gold)] uppercase tracking-[0.18em]">Editor</h2>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5">
           {isDesktop && (
             <button
               onClick={onToggleEdit}
               disabled={isSpinning}
               aria-pressed={canEdit}
-              className={clsx(
-                'inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-wider border transition-colors disabled:opacity-40 disabled:cursor-not-allowed',
-                canEdit
-                  ? 'border-[var(--border-accent)] bg-[var(--accent)]/15 text-[var(--gold)] shadow-[0_0_12px_-4px_var(--glow)]'
-                  : 'border-[var(--border-mid)] text-[var(--muted)] hover:text-[var(--gold)] hover:border-[var(--border-accent)]'
-              )}
+              className={clsx(pill, canEdit ? pillActive : pillIdle, 'disabled:opacity-40 disabled:cursor-not-allowed')}
             >
-              {canEdit ? '✓ Adjusting' : 'Adjust Slices'}
+              {canEdit ? '✓ Adjust' : 'Adjust'}
             </button>
           )}
-          <Button size="sm" variant="secondary" onClick={() => setShowManager(true)}>
+          <button onClick={() => setShowManager(true)} className={clsx(pill, pillIdle)}>
             Wheels
-          </Button>
+          </button>
+          {isDesktop && (
+            <button onClick={onHide} className={clsx(pill, pillIdle)}>
+              Hide
+            </button>
+          )}
         </div>
       </div>
 

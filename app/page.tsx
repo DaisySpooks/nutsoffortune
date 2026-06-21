@@ -226,21 +226,13 @@ export default function Home() {
         } : undefined}
       >
         <div className="w-full lg:w-[420px] h-full flex flex-col min-h-0">
-          {/* Hide editor button — desktop only, top-right of panel */}
-          <div className="hidden lg:flex justify-end px-3 pt-2 pb-0">
-            <button
-              onClick={enterPresentation}
-              className="inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-wider border border-[var(--border-mid)] text-[var(--muted)] hover:text-[var(--gold)] hover:border-[var(--border-accent)] transition-colors"
-            >
-              Hide editor
-            </button>
-          </div>
           <EditorPanel
             editMode={editMode}
             canEdit={canEdit}
             isDesktop={isDesktop}
             isSpinning={isSpinning}
             onToggleEdit={() => setEditMode(v => !v)}
+            onHide={enterPresentation}
           />
         </div>
       </aside>
