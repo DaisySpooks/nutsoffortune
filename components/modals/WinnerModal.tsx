@@ -15,7 +15,7 @@ interface Props {
  * actions, so it adds no new behaviour beyond surfacing the result.
  */
 export default function WinnerModal({ onSpinAgain }: Props) {
-  const { winner, showWinnerModal, setShowWinnerModal, removeEntry, config, wheelMode } = useWheelStore()
+  const { winner, showWinnerModal, setShowWinnerModal, autoRemoveEntry, config, wheelMode } = useWheelStore()
   const isPrizeMode = wheelMode === 'spin-for-prize'
 
   const close = () => setShowWinnerModal(false)
@@ -53,7 +53,7 @@ export default function WinnerModal({ onSpinAgain }: Props) {
             <Button
               variant="secondary"
               className="flex-1"
-              onClick={() => { removeEntry(winner.id); close() }}
+              onClick={() => { autoRemoveEntry(winner.id); close() }}
             >
               {isPrizeMode ? 'Remove Prize' : 'Remove Winner'}
             </Button>
