@@ -6,19 +6,28 @@ import { supabase } from '@/lib/supabase'
 import { getTheme } from '@/lib/colorUtils'
 import { SpinEvent, WheelSnapshot } from '@/lib/liveRoom'
 import { easeOutCubic } from '@/lib/wheelMath'
+import { useMediaQuery } from '@/hooks/useMediaQuery'
 import WheelCanvas from '@/components/wheel/WheelCanvas'
 import WheelPointer from '@/components/wheel/WheelPointer'
+
+// Matches the host's presentation-mode constants exactly.
+// The lounge circle in the background art sits 190px right of the section
+// centre; 38.5% from the top matches its vertical position at all viewports.
+const PM_LEFT = 'calc(50vw + 190px)'
+const PM_TOP = '38.5%'
 
 type Status = 'loading' | 'not-found' | 'ready'
 
 export default function LiveRoomView() {
   const searchParams = useSearchParams()
   const roomCode = searchParams.get('room') ?? ''
+  const isDesktop = useMediaQuery('(min-width: 1024px)')
 
   const [status, setStatus] = useState<Status>('loading')
   const [snapshot, setSnapshot] = useState<WheelSnapshot | null>(null)
   const [currentEvent, setCurrentEvent] = useState<Record<string, unknown> | null>(null)
   const [connected, setConnected] = useState(false)
+  const [videoLoaded, setVideoLoaded] = useState(false)
 
   // Viewer-side spin animation state
   const [viewerAngle, setViewerAngle] = useState(0)
@@ -113,7 +122,12 @@ export default function LiveRoomView() {
     setWinnerIndex(null)
 
     const { startAngle, targetAngle, duration } = event
-    const startTime = performance.now()
+
+    // Compensate for network latency: offset startTime into the past by however
+    // many ms have elapsed since the host broadcast, so the viewer joins the
+    // animation at the host's current position rather than from the beginning.
+    const elapsed = Math.max(0, Date.now() - event.timestamp)
+    const startTime = performance.now() - elapsed
 
     const tick = (now: number) => {
       const t = Math.min((now - startTime) / duration, 1)
@@ -158,57 +172,132 @@ export default function LiveRoomView() {
   const { config } = snapshot
   const theme = getTheme(config.themeId)
 
+  const backgroundVideo = (
+    <video
+      src="/backgrounds/wheel-room-loop.mp4"
+      poster="/backgrounds/wheel-room.png"
+      autoPlay
+      muted
+      loop
+      playsInline
+      aria-hidden="true"
+      onCanPlay={() => setVideoLoaded(true)}
+      style={{
+        position: 'absolute',
+        inset: 0,
+        width: '100%',
+        height: '100%',
+        objectFit: 'cover',
+        objectPosition: 'center',
+        transition: 'opacity 0.6s ease',
+        opacity: videoLoaded ? 1 : 0,
+        pointerEvents: 'none',
+      }}
+    />
+  )
+
+  const overlay = (
+    <div
+      aria-hidden="true"
+      style={{
+        position: 'absolute',
+        inset: 0,
+        background: 'radial-gradient(ellipse at center, rgba(0,0,0,0.45) 0%, rgba(0,0,0,0.72) 100%)',
+        pointerEvents: 'none',
+      }}
+    />
+  )
+
+  const connectionIndicator = (
+    <div className="absolute bottom-5 left-1/2 -translate-x-1/2 z-10 flex items-center gap-2">
+      <span
+        className={`inline-block w-1.5 h-1.5 rounded-full ${connected ? 'bg-green-400' : 'bg-[var(--muted)] opacity-40'}`}
+        aria-hidden="true"
+      />
+      <p className="text-xs uppercase tracking-[0.2em] text-[var(--muted)]">
+        {connected ? 'Live' : 'Connecting'} · {roomCode}
+      </p>
+    </div>
+  )
+
+  const wheelRing = (
+    <div className="wheel-seat glow-ring rounded-full p-1.5" style={{ width: '100%', height: '100%', transform: 'scale(0.923)', transformOrigin: 'center center' }}>
+      <WheelPointer color={theme.pointerColor} />
+      <WheelCanvas
+        entries={config.entries}
+        currentAngle={viewerAngle}
+        theme={theme}
+        displayMode={config.displayMode}
+        winnerIndex={winnerIndex}
+        backgroundUrl={null}
+        editMode={false}
+        onReorder={() => {}}
+      />
+    </div>
+  )
+
+  if (isDesktop) {
+    return (
+      <main
+        className="relative h-screen overflow-hidden pt-5"
+        style={{
+          backgroundImage: 'url(/backgrounds/wheel-room.png)',
+          backgroundSize: 'cover',
+          backgroundPosition: 'center',
+        }}
+      >
+        {backgroundVideo}
+        {overlay}
+
+        <h1 className="relative z-10 text-center text-2xl font-bold text-[var(--gold)] tracking-[0.12em] uppercase text-glow">
+          {config.name}
+        </h1>
+
+        {/* Wheel absolutely positioned at the lounge circle centre — matches PM_LEFT / PM_TOP */}
+        <div
+          style={{
+            position: 'absolute',
+            left: PM_LEFT,
+            top: PM_TOP,
+            width: 'min(90vw, 90vh, 560px)',
+            aspectRatio: '1 / 1',
+            transform: 'translate(-50%, -50%)',
+            zIndex: 10,
+          }}
+        >
+          {wheelRing}
+        </div>
+
+        {connectionIndicator}
+      </main>
+    )
+  }
+
+  // Mobile: wheel in normal flex flow, centred
   return (
     <main
-      className="flex h-screen flex-col items-center justify-center overflow-hidden"
+      className="relative flex h-screen flex-col items-center justify-center overflow-hidden gap-6"
       style={{
         backgroundImage: 'url(/backgrounds/wheel-room.png)',
         backgroundSize: 'cover',
         backgroundPosition: 'center',
       }}
     >
-      {/* Dark overlay */}
-      <div
-        aria-hidden="true"
-        style={{
-          position: 'absolute',
-          inset: 0,
-          background: 'radial-gradient(ellipse at center, rgba(0,0,0,0.45) 0%, rgba(0,0,0,0.72) 100%)',
-          pointerEvents: 'none',
-        }}
-      />
+      {backgroundVideo}
+      {overlay}
 
-      <h1 className="relative z-10 text-2xl font-bold text-[var(--gold)] mb-8 tracking-[0.12em] uppercase text-glow">
+      <h1 className="relative z-10 text-2xl font-bold text-[var(--gold)] tracking-[0.12em] uppercase text-glow">
         {config.name}
       </h1>
 
       <div
-        className="relative z-10 wheel-seat glow-ring rounded-full p-1.5"
+        className="relative z-10"
         style={{ width: 'min(90vw, 90vh, 560px)', aspectRatio: '1 / 1' }}
       >
-        <WheelPointer color={theme.pointerColor} />
-        <WheelCanvas
-          entries={config.entries}
-          currentAngle={viewerAngle}
-          theme={theme}
-          displayMode={config.displayMode}
-          winnerIndex={winnerIndex}
-          backgroundUrl={null}
-          editMode={false}
-          onReorder={() => {}}
-        />
+        {wheelRing}
       </div>
 
-      {/* Connection indicator */}
-      <div className="relative z-10 mt-6 flex items-center gap-2">
-        <span
-          className={`inline-block w-1.5 h-1.5 rounded-full ${connected ? 'bg-green-400' : 'bg-[var(--muted)] opacity-40'}`}
-          aria-hidden="true"
-        />
-        <p className="text-xs uppercase tracking-[0.2em] text-[var(--muted)]">
-          {connected ? 'Live' : 'Connecting'} · {roomCode}
-        </p>
-      </div>
+      {connectionIndicator}
     </main>
   )
 }

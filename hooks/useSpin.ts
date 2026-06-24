@@ -36,7 +36,6 @@ export function useSpin() {
   const audioRef = useRef<HTMLAudioElement | null>(null)
   const lastSliceIdRef = useRef<string | null>(null)
   const lastTickTimeRef = useRef<number>(0)
-  const spinMetaRef = useRef<{ startAngle: number; targetAngle: number; duration: number } | null>(null)
 
   useEffect(() => {
     audioRef.current = createTickAudio()
@@ -77,20 +76,6 @@ export function useSpin() {
     if (store.autoRemoveWinner) {
       store.autoRemoveEntry(winner.id)
     }
-
-    // Broadcast spin event to live viewers if a room is active.
-    const meta = spinMetaRef.current
-    if (meta) {
-      broadcastSpinEvent({
-        type: 'spin',
-        startAngle: meta.startAngle,
-        targetAngle: meta.targetAngle,
-        duration: meta.duration,
-        winnerId: winner.id,
-        winnerName: winner.name,
-        timestamp: Date.now(),
-      })
-    }
   }, [])
 
   const spin = useCallback(() => {
@@ -126,7 +111,20 @@ export function useSpin() {
     const span = Math.max(0, maxDuration - minDuration)
     const duration = Math.max(1, minDuration + Math.random() * span)
 
-    spinMetaRef.current = { startAngle, targetAngle, duration }
+    // Broadcast to live viewers immediately — all spin params are known now.
+    // Winner is deterministic: detectWinner(targetAngle) == detectWinner(finalAngle)
+    // because entries don't change during a spin.
+    const liveWinner = detectWinner(targetAngle, entries)
+    broadcastSpinEvent({
+      type: 'spin',
+      startAngle,
+      targetAngle,
+      duration,
+      winnerId: liveWinner.id,
+      winnerName: liveWinner.name,
+      timestamp: Date.now(),
+    })
+
     const startTime = performance.now()
 
     const tick = (now: number) => {
