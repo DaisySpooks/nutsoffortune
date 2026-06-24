@@ -42,6 +42,7 @@ export default function LiveRoomView() {
         .single()
 
       if (error || !data) {
+        console.error('[LiveRoomView] fetch error:', error, '| data:', data)
         setStatus('not-found')
         return
       }
