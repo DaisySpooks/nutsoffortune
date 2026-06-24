@@ -1,0 +1,3 @@
+# Rewrite all /live/* requests to the pre-rendered shell at /live/index.
+# The page reads the real room code from window.location.pathname client-side.
+/live/* /live/index 200
