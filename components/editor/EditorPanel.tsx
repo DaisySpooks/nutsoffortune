@@ -6,6 +6,7 @@ import Tabs from '@/components/ui/Tabs'
 import EntriesTab from './tabs/EntriesTab'
 import SettingsTab from './tabs/SettingsTab'
 import WheelManagerModal from '@/components/modals/WheelManagerModal'
+import LiveDrawModal from '@/components/modals/LiveDrawModal'
 
 const pill = 'inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-wider border transition-colors'
 const pillIdle = 'border-[var(--border-mid)] bg-[var(--panel-raised)] text-[var(--muted)] hover:text-[var(--gold)] hover:border-[var(--border-accent)]'
@@ -22,6 +23,7 @@ interface Props {
 
 export default function EditorPanel({ editMode, canEdit, isDesktop, isSpinning, onToggleEdit, onHide }: Props) {
   const [showManager, setShowManager] = useState(false)
+  const [showLive, setShowLive] = useState(false)
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
@@ -40,6 +42,9 @@ export default function EditorPanel({ editMode, canEdit, isDesktop, isSpinning, 
           )}
           <button onClick={() => setShowManager(true)} className={clsx(pill, pillIdle)}>
             Wheels
+          </button>
+          <button onClick={() => setShowLive(true)} className={clsx(pill, pillIdle)}>
+            Live
           </button>
           {isDesktop && (
             <button onClick={onHide} className={clsx(pill, pillIdle)}>
@@ -60,6 +65,7 @@ export default function EditorPanel({ editMode, canEdit, isDesktop, isSpinning, 
       </div>
 
       <WheelManagerModal open={showManager} onClose={() => setShowManager(false)} />
+      <LiveDrawModal open={showLive} onClose={() => setShowLive(false)} />
     </div>
   )
 }
