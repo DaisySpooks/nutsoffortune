@@ -1,6 +1,7 @@
 'use client'
 
 import { useWheelStore } from '@/store/wheelStore'
+import { broadcastWheelState } from '@/lib/liveRoom'
 import Modal from '@/components/ui/Modal'
 import Button from '@/components/ui/Button'
 
@@ -53,7 +54,12 @@ export default function WinnerModal({ onSpinAgain }: Props) {
             <Button
               variant="secondary"
               className="flex-1"
-              onClick={() => { autoRemoveEntry(winner.id); close() }}
+              onClick={() => {
+              autoRemoveEntry(winner.id)
+              const s = useWheelStore.getState()
+              broadcastWheelState({ config: s.config, wheelMode: s.wheelMode, autoRemoveWinner: s.autoRemoveWinner })
+              close()
+            }}
             >
               {isPrizeMode ? 'Remove Prize' : 'Remove Winner'}
             </Button>

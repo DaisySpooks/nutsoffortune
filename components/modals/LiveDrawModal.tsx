@@ -24,6 +24,10 @@ export default function LiveDrawModal({ open, onClose }: Props) {
     ? `${typeof window !== 'undefined' ? window.location.origin : ''}/live?room=${roomCode}`
     : null
 
+  // True while any entry still has a session-only blob: URL — means the Supabase
+  // Storage upload hasn't finished yet and the snapshot would lose those images.
+  const hasPendingUploads = config.entries.some(e => e.imageUrl?.startsWith('blob:'))
+
   async function handleStart() {
     setLoading(true)
     setError(null)
@@ -57,13 +61,18 @@ export default function LiveDrawModal({ open, onClose }: Props) {
           <p className="text-sm text-[var(--muted)]">
             Create a live room so viewers can follow along in real time. The current wheel and entries will be shared.
           </p>
+          {hasPendingUploads && (
+            <p className="text-xs text-amber-400">
+              Images are still uploading. Wait a moment before starting.
+            </p>
+          )}
           {error && (
             <p className="text-sm text-red-400 bg-red-950/30 border border-red-800/40 rounded-lg px-3 py-2">
               {error}
             </p>
           )}
-          <Button variant="primary" disabled={loading} onClick={handleStart}>
-            {loading ? 'Creating room…' : 'Start Live Draw'}
+          <Button variant="primary" disabled={loading || hasPendingUploads} onClick={handleStart}>
+            {loading ? 'Creating room…' : hasPendingUploads ? 'Waiting for uploads…' : 'Start Live Draw'}
           </Button>
         </div>
       ) : (
@@ -95,8 +104,13 @@ export default function LiveDrawModal({ open, onClose }: Props) {
                 {error}
               </p>
             )}
-            <Button variant="secondary" disabled={loading} onClick={handleStart}>
-              {loading ? 'Creating room…' : 'Start new live room'}
+            {hasPendingUploads && (
+              <p className="text-xs text-amber-400">
+                Images are still uploading. Wait a moment before starting.
+              </p>
+            )}
+            <Button variant="secondary" disabled={loading || hasPendingUploads} onClick={handleStart}>
+              {loading ? 'Creating room…' : hasPendingUploads ? 'Waiting for uploads…' : 'Start new live room'}
             </Button>
           </div>
         </div>

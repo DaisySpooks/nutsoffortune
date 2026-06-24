@@ -80,7 +80,10 @@ export default function LiveRoomView() {
           const row = payload.new as { wheel_state: WheelSnapshot | null; current_event: Record<string, unknown> | null }
           // wheel_state can be absent from the payload if the UPDATE only touched
           // current_event — keep the existing snapshot rather than overwriting with null.
-          if (row.wheel_state != null) setSnapshot(row.wheel_state)
+          if (row.wheel_state != null) {
+            setSnapshot(row.wheel_state)
+            setWinnerIndex(null) // clear stale highlight when host updates wheel
+          }
           setCurrentEvent(row.current_event ?? null)
         }
       )

@@ -45,18 +45,10 @@ export async function createLiveRoom(snapshot: WheelSnapshot): Promise<{ roomCod
   const roomCode = generateRoomCode()
   const hostToken = uuid()
 
-  const safeSnapshot: WheelSnapshot = {
-    ...snapshot,
-    config: {
-      ...snapshot.config,
-      // blob: URLs are session-only and non-serialisable — strip them.
-      // Public Supabase Storage URLs are stable and intentionally kept.
-      entries: snapshot.config.entries.map(e => ({
-        ...e,
-        imageUrl: e.imageUrl?.startsWith('blob:') ? null : (e.imageUrl ?? null),
-      })),
-    },
-  }
+  const safeSnapshot = safeEntries(snapshot)
+
+  const withImages = safeSnapshot.config.entries.filter(e => e.imageUrl)
+  console.log('[liveRoom] createLiveRoom: entries:', safeSnapshot.config.entries.length, '| with public imageUrl:', withImages.length)
 
   const { error } = await supabase.rpc('create_live_room', {
     p_id: uuid(),
@@ -71,6 +63,37 @@ export async function createLiveRoom(snapshot: WheelSnapshot): Promise<{ roomCod
   localStorage.setItem(ACTIVE_ROOM_KEY, roomCode)
   console.log('[liveRoom] Room created, active room set to:', roomCode)
   return { roomCode }
+}
+
+function safeEntries(snapshot: WheelSnapshot): WheelSnapshot {
+  return {
+    ...snapshot,
+    config: {
+      ...snapshot.config,
+      entries: snapshot.config.entries.map(e => ({
+        ...e,
+        imageUrl: e.imageUrl?.startsWith('blob:') ? null : (e.imageUrl ?? null),
+      })),
+    },
+  }
+}
+
+// Push an updated wheel state to all viewers (e.g. after a winner is removed).
+// Token validation happens server-side inside the security definer function.
+export async function broadcastWheelState(snapshot: WheelSnapshot): Promise<void> {
+  const roomCode = getActiveRoomCode()
+  if (!roomCode) return
+  const hostToken = getStoredHostToken(roomCode)
+  if (!hostToken) return
+
+  const { error } = await supabase.rpc('broadcast_wheel_state', {
+    p_room_code: roomCode,
+    p_host_token: hostToken,
+    p_wheel_state: safeEntries(snapshot),
+  })
+  if (error) {
+    console.error('[liveRoom] broadcastWheelState: RPC error', error)
+  }
 }
 
 // Fire-and-forget: write a spin event to current_event so viewers can replay it.

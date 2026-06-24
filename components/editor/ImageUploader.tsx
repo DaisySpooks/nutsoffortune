@@ -55,6 +55,7 @@ export default function ImageUploader({ useFilenamesAsNames }: Props) {
             continue
           }
           const { data } = supabase.storage.from('wheel-images').getPublicUrl(imageId)
+          console.log('[ImageUploader] Uploaded', imageId, '→', data.publicUrl)
           useWheelStore.getState().updateEntry(entryId, { imageUrl: data.publicUrl })
         } catch (e) {
           console.warn('[ImageUploader] Storage upload failed:', e)

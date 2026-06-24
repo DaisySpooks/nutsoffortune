@@ -8,7 +8,7 @@ import {
   targetAngleForEntry,
   randomTargetAngle,
 } from '@/lib/wheelMath'
-import { broadcastSpinEvent } from '@/lib/liveRoom'
+import { broadcastSpinEvent, broadcastWheelState } from '@/lib/liveRoom'
 import { v4 as uuid } from 'uuid'
 
 function createTickAudio() {
@@ -75,6 +75,12 @@ export function useSpin() {
     // the wheel (and highlighted) until the user removes it from the modal.
     if (store.autoRemoveWinner) {
       store.autoRemoveEntry(winner.id)
+      const updated = useWheelStore.getState()
+      broadcastWheelState({
+        config: updated.config,
+        wheelMode: updated.wheelMode,
+        autoRemoveWinner: updated.autoRemoveWinner,
+      })
     }
   }, [])
 
