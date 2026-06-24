@@ -146,7 +146,10 @@ export default function Home() {
         <h1 className={clsx(
           'text-2xl font-bold text-[var(--gold)] tracking-[0.12em] uppercase text-glow',
           presentationMode
-            ? 'absolute top-5 w-full z-10 text-center pointer-events-none'
+            // Constrained to the left zone — wheel is at calc(50vw+190px) so its
+            // left edge is ~50vw−68px; stopping at calc(50vw+100px) from the right
+            // keeps the title safely clear of it.
+            ? 'absolute top-5 left-4 right-[calc(50vw+100px)] z-10 text-center pointer-events-none'
             : 'mb-5'
         )}>
           {config.name}

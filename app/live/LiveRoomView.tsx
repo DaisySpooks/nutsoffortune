@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
+import { clsx } from 'clsx'
 import { supabase } from '@/lib/supabase'
 import { getTheme } from '@/lib/colorUtils'
 import { SpinEvent, WheelSnapshot } from '@/lib/liveRoom'
@@ -84,9 +85,13 @@ export default function LiveRoomView() {
           const row = payload.new as { wheel_state: WheelSnapshot | null; current_event: Record<string, unknown> | null }
           if (row.wheel_state != null) {
             setSnapshot(row.wheel_state)
-            // Winner was removed on the host — clear the result reveal
+            // Clear wheel-slice highlight whenever entries may have changed.
+            // Do NOT clear viewerWinner here — Supabase sends the full row on
+            // every UPDATE (including broadcast_spin_event which only touches
+            // current_event), so clearing here would race against and erase the
+            // reveal that the animation just set. viewerWinner is cleared only
+            // at the start of the next spin.
             setWinnerIndex(null)
-            setViewerWinner(null)
           }
           setCurrentEvent(row.current_event ?? null)
         }
@@ -125,6 +130,25 @@ export default function LiveRoomView() {
 
     const { startAngle, targetAngle, duration } = event
     const elapsed = Math.max(0, Date.now() - event.timestamp)
+    // Capture as non-null so closures can use it without TS complaints — the
+    // guard at the top of this effect already confirmed snapshot is non-null.
+    const snap = snapshot
+
+    function finishNow() {
+      setViewerAngle(targetAngle)
+      const idx = snap.config.entries.findIndex(e => e.id === event.winnerId)
+      setWinnerIndex(idx !== -1 ? idx : null)
+      const entry = idx !== -1 ? snap.config.entries[idx] : null
+      setViewerWinner({ name: event.winnerName, imageUrl: entry?.imageUrl ?? null })
+    }
+
+    // If the host's spin already finished (or nearly so), skip the animation
+    // entirely and immediately show the result.
+    if (elapsed >= duration) {
+      finishNow()
+      return
+    }
+
     const startTime = performance.now() - elapsed
 
     const tick = (now: number) => {
@@ -135,14 +159,7 @@ export default function LiveRoomView() {
         rafRef.current = requestAnimationFrame(tick)
       } else {
         rafRef.current = null
-        setViewerAngle(targetAngle)
-        const idx = snapshot.config.entries.findIndex(e => e.id === event.winnerId)
-        setWinnerIndex(idx !== -1 ? idx : null)
-        const entry = idx !== -1 ? snapshot.config.entries[idx] : null
-        setViewerWinner({
-          name: event.winnerName,
-          imageUrl: entry?.imageUrl ?? null,
-        })
+        finishNow()
       }
     }
 
@@ -279,9 +296,17 @@ export default function LiveRoomView() {
     </div>
   )
 
-  // Title — absolutely positioned so it can never intrude on the wheel's space
+  // Title — absolutely positioned so it can never intrude on the wheel's space.
+  // Desktop: constrained to the left half of the lounge scene (wheel occupies the
+  // right half starting at roughly 50vw − 68px). Mobile: full width, wheel is
+  // centered below so no horizontal conflict.
   const title = (
-    <h1 className="absolute top-5 w-full z-10 text-center text-2xl font-bold text-[var(--gold)] tracking-[0.12em] uppercase text-glow pointer-events-none">
+    <h1 className={clsx(
+      'absolute top-5 z-10 text-2xl font-bold text-[var(--gold)] tracking-[0.12em] uppercase text-glow pointer-events-none text-center',
+      isDesktop
+        ? 'left-4 right-[calc(50vw+100px)]'
+        : 'w-full'
+    )}>
       {config.name}
     </h1>
   )
