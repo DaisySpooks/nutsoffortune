@@ -18,6 +18,11 @@ const PM_TOP = '38.5%'
 
 type Status = 'loading' | 'not-found' | 'ready'
 
+interface ViewerWinner {
+  name: string
+  imageUrl: string | null
+}
+
 export default function LiveRoomView() {
   const searchParams = useSearchParams()
   const roomCode = searchParams.get('room') ?? ''
@@ -32,11 +37,10 @@ export default function LiveRoomView() {
   // Viewer-side spin animation state
   const [viewerAngle, setViewerAngle] = useState(0)
   const [winnerIndex, setWinnerIndex] = useState<number | null>(null)
+  // Winner data for the result reveal overlay — cleared when the host removes the winner
+  const [viewerWinner, setViewerWinner] = useState<ViewerWinner | null>(null)
   const rafRef = useRef<number | null>(null)
-  // Deduplication: only replay each event once, keyed by timestamp
   const lastReplayedTimestampRef = useRef<number | null>(null)
-  // Ignore spin events that were stored before this viewer opened — they are
-  // historical state, not live events the audience should see replayed.
   const mountTimeRef = useRef(Date.now())
 
   // Load room + subscribe to realtime updates
@@ -78,11 +82,11 @@ export default function LiveRoomView() {
         },
         (payload) => {
           const row = payload.new as { wheel_state: WheelSnapshot | null; current_event: Record<string, unknown> | null }
-          // wheel_state can be absent from the payload if the UPDATE only touched
-          // current_event — keep the existing snapshot rather than overwriting with null.
           if (row.wheel_state != null) {
             setSnapshot(row.wheel_state)
-            setWinnerIndex(null) // clear stale highlight when host updates wheel
+            // Winner was removed on the host — clear the result reveal
+            setWinnerIndex(null)
+            setViewerWinner(null)
           }
           setCurrentEvent(row.current_event ?? null)
         }
@@ -96,7 +100,6 @@ export default function LiveRoomView() {
     }
   }, [roomCode])
 
-  // Cancel any in-progress animation on unmount
   useEffect(() => {
     return () => {
       if (rafRef.current !== null) cancelAnimationFrame(rafRef.current)
@@ -109,26 +112,18 @@ export default function LiveRoomView() {
 
     const event = currentEvent as unknown as SpinEvent
 
-    // Skip events that predate this viewer session — they are persisted history,
-    // not live spins the audience should see replayed on load.
     if (event.timestamp < mountTimeRef.current) return
-
-    // Skip if this is the same event we already played
     if (event.timestamp === lastReplayedTimestampRef.current) return
     lastReplayedTimestampRef.current = event.timestamp
 
-    // Cancel any previous animation
     if (rafRef.current !== null) {
       cancelAnimationFrame(rafRef.current)
       rafRef.current = null
     }
     setWinnerIndex(null)
+    setViewerWinner(null)
 
     const { startAngle, targetAngle, duration } = event
-
-    // Compensate for network latency: offset startTime into the past by however
-    // many ms have elapsed since the host broadcast, so the viewer joins the
-    // animation at the host's current position rather than from the beginning.
     const elapsed = Math.max(0, Date.now() - event.timestamp)
     const startTime = performance.now() - elapsed
 
@@ -143,6 +138,11 @@ export default function LiveRoomView() {
         setViewerAngle(targetAngle)
         const idx = snapshot.config.entries.findIndex(e => e.id === event.winnerId)
         setWinnerIndex(idx !== -1 ? idx : null)
+        const entry = idx !== -1 ? snapshot.config.entries[idx] : null
+        setViewerWinner({
+          name: event.winnerName,
+          imageUrl: entry?.imageUrl ?? null,
+        })
       }
     }
 
@@ -172,17 +172,17 @@ export default function LiveRoomView() {
     )
   }
 
-  const { config } = snapshot
+  const { config, wheelMode } = snapshot
   const theme = getTheme(config.themeId)
+  const isPrizeMode = wheelMode === 'spin-for-prize'
+
+  // ── Shared elements ───────────────────────────────────────────────────────
 
   const backgroundVideo = (
     <video
       src="/backgrounds/wheel-room-loop.mp4"
       poster="/backgrounds/wheel-room.png"
-      autoPlay
-      muted
-      loop
-      playsInline
+      autoPlay muted loop playsInline
       aria-hidden="true"
       onCanPlay={() => setVideoLoaded(true)}
       style={{
@@ -211,8 +211,45 @@ export default function LiveRoomView() {
     />
   )
 
+  // Result reveal — shown after the spin lands, cleared when host removes the winner.
+  // No host controls (no Spin Again, no Remove Winner).
+  const resultReveal = viewerWinner ? (
+    <div
+      className="absolute inset-0 z-20 flex items-center justify-center pointer-events-none"
+      style={{ background: 'radial-gradient(ellipse at center, rgba(0,0,0,0.55) 0%, rgba(0,0,0,0) 65%)' }}
+    >
+      <div className="flex flex-col items-center gap-3 text-center">
+        {viewerWinner.imageUrl && (
+          <img
+            src={viewerWinner.imageUrl}
+            alt=""
+            className="w-28 h-28 rounded-xl object-cover border border-[var(--border-accent)] shadow-[0_0_24px_-6px_var(--glow)]"
+          />
+        )}
+        <p className="text-xs uppercase tracking-[0.2em] text-[var(--muted)]">
+          {isPrizeMode ? 'You landed on' : 'We have a winner!'}
+        </p>
+        <p className="text-2xl font-extrabold text-[var(--gold)] text-glow break-words leading-tight max-w-xs px-4">
+          {viewerWinner.name.trim() || 'Unnamed entry'}
+        </p>
+      </div>
+    </div>
+  ) : null
+
+  // Bottom result label — mirrors presentation mode's winner display
+  const bottomResult = viewerWinner ? (
+    <div className="absolute bottom-14 left-1/2 -translate-x-1/2 z-30 text-center pointer-events-none">
+      <p className="text-xs uppercase tracking-[0.2em] text-[var(--muted)]">
+        {isPrizeMode ? 'Prize' : 'Winner'}
+      </p>
+      <p className="text-xl font-bold text-[var(--gold)] text-glow whitespace-nowrap">
+        {viewerWinner.name}
+      </p>
+    </div>
+  ) : null
+
   const connectionIndicator = (
-    <div className="absolute bottom-5 left-1/2 -translate-x-1/2 z-10 flex items-center gap-2">
+    <div className="absolute bottom-5 left-1/2 -translate-x-1/2 z-30 flex items-center gap-2">
       <span
         className={`inline-block w-1.5 h-1.5 rounded-full ${connected ? 'bg-green-400' : 'bg-[var(--muted)] opacity-40'}`}
         aria-hidden="true"
@@ -224,7 +261,10 @@ export default function LiveRoomView() {
   )
 
   const wheelRing = (
-    <div className="wheel-seat glow-ring rounded-full p-1.5" style={{ width: '100%', height: '100%', transform: 'scale(0.923)', transformOrigin: 'center center' }}>
+    <div
+      className="wheel-seat glow-ring rounded-full p-1.5"
+      style={{ width: '100%', height: '100%', transform: 'scale(0.923)', transformOrigin: 'center center' }}
+    >
       <WheelPointer color={theme.pointerColor} />
       <WheelCanvas
         entries={config.entries}
@@ -239,10 +279,17 @@ export default function LiveRoomView() {
     </div>
   )
 
+  // Title — absolutely positioned so it can never intrude on the wheel's space
+  const title = (
+    <h1 className="absolute top-5 w-full z-10 text-center text-2xl font-bold text-[var(--gold)] tracking-[0.12em] uppercase text-glow pointer-events-none">
+      {config.name}
+    </h1>
+  )
+
   if (isDesktop) {
     return (
       <main
-        className="relative h-screen overflow-hidden pt-5"
+        className="relative h-screen overflow-hidden"
         style={{
           backgroundImage: 'url(/backgrounds/wheel-room.png)',
           backgroundSize: 'cover',
@@ -251,12 +298,8 @@ export default function LiveRoomView() {
       >
         {backgroundVideo}
         {overlay}
+        {title}
 
-        <h1 className="relative z-10 text-center text-2xl font-bold text-[var(--gold)] tracking-[0.12em] uppercase text-glow">
-          {config.name}
-        </h1>
-
-        {/* Wheel absolutely positioned at the lounge circle centre — matches PM_LEFT / PM_TOP */}
         <div
           style={{
             position: 'absolute',
@@ -271,12 +314,13 @@ export default function LiveRoomView() {
           {wheelRing}
         </div>
 
+        {resultReveal}
+        {bottomResult}
         {connectionIndicator}
       </main>
     )
   }
 
-  // Mobile: wheel in normal flex flow, centred
   return (
     <main
       className="relative flex h-screen flex-col items-center justify-center overflow-hidden gap-6"
@@ -288,10 +332,7 @@ export default function LiveRoomView() {
     >
       {backgroundVideo}
       {overlay}
-
-      <h1 className="relative z-10 text-2xl font-bold text-[var(--gold)] tracking-[0.12em] uppercase text-glow">
-        {config.name}
-      </h1>
+      {title}
 
       <div
         className="relative z-10"
@@ -300,6 +341,8 @@ export default function LiveRoomView() {
         {wheelRing}
       </div>
 
+      {resultReveal}
+      {bottomResult}
       {connectionIndicator}
     </main>
   )

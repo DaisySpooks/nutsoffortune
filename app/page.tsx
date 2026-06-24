@@ -143,7 +143,12 @@ export default function Home() {
           }}
         />
 
-        <h1 className="text-2xl font-bold text-[var(--gold)] mb-5 tracking-[0.12em] uppercase text-glow">
+        <h1 className={clsx(
+          'text-2xl font-bold text-[var(--gold)] tracking-[0.12em] uppercase text-glow',
+          presentationMode
+            ? 'absolute top-5 w-full z-10 text-center pointer-events-none'
+            : 'mb-5'
+        )}>
           {config.name}
         </h1>
 
