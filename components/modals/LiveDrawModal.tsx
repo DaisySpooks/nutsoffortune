@@ -19,7 +19,7 @@ export default function LiveDrawModal({ open, onClose }: Props) {
   const [copied, setCopied] = useState(false)
 
   const shareUrl = roomCode
-    ? `${typeof window !== 'undefined' ? window.location.origin : ''}/live/${roomCode}`
+    ? `${typeof window !== 'undefined' ? window.location.origin : ''}/live?room=${roomCode}`
     : null
 
   async function handleStart() {

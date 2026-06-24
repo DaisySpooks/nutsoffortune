@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { usePathname } from 'next/navigation'
+import { useSearchParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { getTheme } from '@/lib/colorUtils'
 import { WheelSnapshot } from '@/lib/liveRoom'
@@ -11,16 +11,17 @@ import WheelPointer from '@/components/wheel/WheelPointer'
 type Status = 'loading' | 'not-found' | 'ready'
 
 export default function LiveRoomView() {
-  // usePathname gives the real browser URL even though the shell was pre-rendered
-  // for roomCode='index'. Extract the actual room code from the live pathname.
-  const pathname = usePathname()
-  const roomCode = pathname.split('/').filter(Boolean).at(-1) ?? ''
+  const searchParams = useSearchParams()
+  const roomCode = searchParams.get('room') ?? ''
 
   const [status, setStatus] = useState<Status>('loading')
   const [snapshot, setSnapshot] = useState<WheelSnapshot | null>(null)
 
   useEffect(() => {
-    if (!roomCode) return
+    if (!roomCode) {
+      setStatus('not-found')
+      return
+    }
 
     async function load() {
       const { data, error } = await supabase
@@ -56,7 +57,9 @@ export default function LiveRoomView() {
       <div className="flex h-screen flex-col items-center justify-center gap-3 bg-[#0e0905]">
         <p className="text-lg font-semibold text-[var(--gold)]">Room not found</p>
         <p className="text-sm text-[var(--muted)]">
-          The room code <span className="font-mono tracking-widest">{roomCode}</span> does not exist or has expired.
+          {roomCode
+            ? <>The room code <span className="font-mono tracking-widest">{roomCode}</span> does not exist or has expired.</>
+            : 'No room code provided. Use a shared link to join a live draw.'}
         </p>
       </div>
     )
