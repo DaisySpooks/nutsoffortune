@@ -1,10 +1,11 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { getTheme } from '@/lib/colorUtils'
-import { WheelSnapshot } from '@/lib/liveRoom'
+import { SpinEvent, WheelSnapshot } from '@/lib/liveRoom'
+import { easeOutCubic } from '@/lib/wheelMath'
 import WheelCanvas from '@/components/wheel/WheelCanvas'
 import WheelPointer from '@/components/wheel/WheelPointer'
 
@@ -16,10 +17,17 @@ export default function LiveRoomView() {
 
   const [status, setStatus] = useState<Status>('loading')
   const [snapshot, setSnapshot] = useState<WheelSnapshot | null>(null)
-  // Stored for future spin/result syncing — not used for rendering yet.
   const [currentEvent, setCurrentEvent] = useState<Record<string, unknown> | null>(null)
   const [connected, setConnected] = useState(false)
 
+  // Viewer-side spin animation state
+  const [viewerAngle, setViewerAngle] = useState(0)
+  const [winnerIndex, setWinnerIndex] = useState<number | null>(null)
+  const rafRef = useRef<number | null>(null)
+  // Deduplication: only replay each event once, keyed by timestamp
+  const lastReplayedTimestampRef = useRef<number | null>(null)
+
+  // Load room + subscribe to realtime updates
   useEffect(() => {
     if (!roomCode) {
       setStatus('not-found')
@@ -70,8 +78,49 @@ export default function LiveRoomView() {
     }
   }, [roomCode])
 
-  // Suppress unused-variable warning until spin syncing is built.
-  void currentEvent
+  // Cancel any in-progress animation on unmount
+  useEffect(() => {
+    return () => {
+      if (rafRef.current !== null) cancelAnimationFrame(rafRef.current)
+    }
+  }, [])
+
+  // Replay spin events from the host
+  useEffect(() => {
+    if (!currentEvent || currentEvent.type !== 'spin' || !snapshot) return
+
+    const event = currentEvent as unknown as SpinEvent
+
+    // Skip if this is the same event we already played
+    if (event.timestamp === lastReplayedTimestampRef.current) return
+    lastReplayedTimestampRef.current = event.timestamp
+
+    // Cancel any previous animation
+    if (rafRef.current !== null) {
+      cancelAnimationFrame(rafRef.current)
+      rafRef.current = null
+    }
+    setWinnerIndex(null)
+
+    const { startAngle, targetAngle, duration } = event
+    const startTime = performance.now()
+
+    const tick = (now: number) => {
+      const t = Math.min((now - startTime) / duration, 1)
+      setViewerAngle(startAngle + (targetAngle - startAngle) * easeOutCubic(t))
+
+      if (t < 1) {
+        rafRef.current = requestAnimationFrame(tick)
+      } else {
+        rafRef.current = null
+        setViewerAngle(targetAngle)
+        const idx = snapshot.config.entries.findIndex(e => e.id === event.winnerId)
+        setWinnerIndex(idx !== -1 ? idx : null)
+      }
+    }
+
+    rafRef.current = requestAnimationFrame(tick)
+  }, [currentEvent, snapshot])
 
   if (status === 'loading') {
     return (
@@ -130,10 +179,10 @@ export default function LiveRoomView() {
         <WheelPointer color={theme.pointerColor} />
         <WheelCanvas
           entries={config.entries}
-          currentAngle={0}
+          currentAngle={viewerAngle}
           theme={theme}
           displayMode={config.displayMode}
-          winnerIndex={null}
+          winnerIndex={winnerIndex}
           backgroundUrl={null}
           editMode={false}
           onReorder={() => {}}
