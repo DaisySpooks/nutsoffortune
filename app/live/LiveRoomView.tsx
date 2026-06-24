@@ -26,6 +26,9 @@ export default function LiveRoomView() {
   const rafRef = useRef<number | null>(null)
   // Deduplication: only replay each event once, keyed by timestamp
   const lastReplayedTimestampRef = useRef<number | null>(null)
+  // Ignore spin events that were stored before this viewer opened — they are
+  // historical state, not live events the audience should see replayed.
+  const mountTimeRef = useRef(Date.now())
 
   // Load room + subscribe to realtime updates
   useEffect(() => {
@@ -65,8 +68,10 @@ export default function LiveRoomView() {
           filter: `room_code=eq.${roomCode}`,
         },
         (payload) => {
-          const row = payload.new as { wheel_state: WheelSnapshot; current_event: Record<string, unknown> | null }
-          setSnapshot(row.wheel_state)
+          const row = payload.new as { wheel_state: WheelSnapshot | null; current_event: Record<string, unknown> | null }
+          // wheel_state can be absent from the payload if the UPDATE only touched
+          // current_event — keep the existing snapshot rather than overwriting with null.
+          if (row.wheel_state != null) setSnapshot(row.wheel_state)
           setCurrentEvent(row.current_event ?? null)
         }
       )
@@ -91,6 +96,10 @@ export default function LiveRoomView() {
     if (!currentEvent || currentEvent.type !== 'spin' || !snapshot) return
 
     const event = currentEvent as unknown as SpinEvent
+
+    // Skip events that predate this viewer session — they are persisted history,
+    // not live spins the audience should see replayed on load.
+    if (event.timestamp < mountTimeRef.current) return
 
     // Skip if this is the same event we already played
     if (event.timestamp === lastReplayedTimestampRef.current) return
