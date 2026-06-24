@@ -8,6 +8,7 @@ import {
   targetAngleForEntry,
   randomTargetAngle,
 } from '@/lib/wheelMath'
+import { broadcastSpinEvent } from '@/lib/liveRoom'
 import { v4 as uuid } from 'uuid'
 
 function createTickAudio() {
@@ -35,6 +36,7 @@ export function useSpin() {
   const audioRef = useRef<HTMLAudioElement | null>(null)
   const lastSliceIdRef = useRef<string | null>(null)
   const lastTickTimeRef = useRef<number>(0)
+  const spinMetaRef = useRef<{ startAngle: number; targetAngle: number; duration: number } | null>(null)
 
   useEffect(() => {
     audioRef.current = createTickAudio()
@@ -75,6 +77,20 @@ export function useSpin() {
     if (store.autoRemoveWinner) {
       store.autoRemoveEntry(winner.id)
     }
+
+    // Broadcast spin event to live viewers if a room is active.
+    const meta = spinMetaRef.current
+    if (meta) {
+      broadcastSpinEvent({
+        type: 'spin',
+        startAngle: meta.startAngle,
+        targetAngle: meta.targetAngle,
+        duration: meta.duration,
+        winnerId: winner.id,
+        winnerName: winner.name,
+        timestamp: Date.now(),
+      })
+    }
   }, [])
 
   const spin = useCallback(() => {
@@ -109,6 +125,8 @@ export function useSpin() {
     const { minDuration, maxDuration } = config.spin
     const span = Math.max(0, maxDuration - minDuration)
     const duration = Math.max(1, minDuration + Math.random() * span)
+
+    spinMetaRef.current = { startAngle, targetAngle, duration }
     const startTime = performance.now()
 
     const tick = (now: number) => {
