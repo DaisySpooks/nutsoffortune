@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { useWheelStore } from '@/store/wheelStore'
-import { createLiveRoom } from '@/lib/liveRoom'
+import { createLiveRoom, getActiveRoomCode } from '@/lib/liveRoom'
 import Modal from '@/components/ui/Modal'
 import Button from '@/components/ui/Button'
 
@@ -13,7 +13,9 @@ interface Props {
 
 export default function LiveDrawModal({ open, onClose }: Props) {
   const { config, wheelMode, autoRemoveWinner } = useWheelStore()
-  const [roomCode, setRoomCode] = useState<string | null>(null)
+  // Initialise from localStorage so re-opening the modal shows the existing
+  // active room rather than "Start Live Draw", preventing accidental duplicates.
+  const [roomCode, setRoomCode] = useState<string | null>(() => getActiveRoomCode())
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
@@ -43,7 +45,6 @@ export default function LiveDrawModal({ open, onClose }: Props) {
   }
 
   function handleClose() {
-    setRoomCode(null)
     setError(null)
     setCopied(false)
     onClose()

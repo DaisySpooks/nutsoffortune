@@ -65,6 +65,7 @@ export async function createLiveRoom(snapshot: WheelSnapshot): Promise<{ roomCod
 
   localStorage.setItem(HOST_TOKEN_KEY(roomCode), hostToken)
   localStorage.setItem(ACTIVE_ROOM_KEY, roomCode)
+  console.log('[liveRoom] Room created, active room set to:', roomCode)
   return { roomCode }
 }
 
@@ -72,13 +73,23 @@ export async function createLiveRoom(snapshot: WheelSnapshot): Promise<{ roomCod
 // Token validation happens server-side inside the security definer function.
 export async function broadcastSpinEvent(event: SpinEvent): Promise<void> {
   const roomCode = getActiveRoomCode()
-  if (!roomCode) return
+  if (!roomCode) {
+    console.log('[liveRoom] broadcastSpinEvent: no active room in localStorage, skipping')
+    return
+  }
   const hostToken = getStoredHostToken(roomCode)
-  if (!hostToken) return
+  if (!hostToken) {
+    console.log('[liveRoom] broadcastSpinEvent: no host token for room', roomCode, '— skipping')
+    return
+  }
 
-  await supabase.rpc('broadcast_spin_event', {
+  console.log('[liveRoom] broadcastSpinEvent: sending to room', roomCode)
+  const { error } = await supabase.rpc('broadcast_spin_event', {
     p_room_code: roomCode,
     p_host_token: hostToken,
     p_event: event,
   })
+  if (error) {
+    console.error('[liveRoom] broadcastSpinEvent: RPC error for room', roomCode, error)
+  }
 }
