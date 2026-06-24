@@ -85,6 +85,20 @@ export default function LiveDrawModal({ open, onClose }: Props) {
             Room code:{' '}
             <span className="font-mono tracking-widest text-[var(--gold)]">{roomCode}</span>
           </p>
+
+          <div className="border-t border-[var(--border-mid)] pt-3 flex flex-col gap-2">
+            <p className="text-xs text-[var(--muted)]">
+              Changed your wheel? Start a fresh room with the current entries.
+            </p>
+            {error && (
+              <p className="text-sm text-red-400 bg-red-950/30 border border-red-800/40 rounded-lg px-3 py-2">
+                {error}
+              </p>
+            )}
+            <Button variant="secondary" disabled={loading} onClick={handleStart}>
+              {loading ? 'Creating room…' : 'Start new live room'}
+            </Button>
+          </div>
         </div>
       )}
     </Modal>
