@@ -45,12 +45,16 @@ export async function createLiveRoom(snapshot: WheelSnapshot): Promise<{ roomCod
   const roomCode = generateRoomCode()
   const hostToken = uuid()
 
-  // Strip runtime imageUrls — they are session-only object URLs, not serialisable
   const safeSnapshot: WheelSnapshot = {
     ...snapshot,
     config: {
       ...snapshot.config,
-      entries: snapshot.config.entries.map(e => ({ ...e, imageUrl: null })),
+      // blob: URLs are session-only and non-serialisable — strip them.
+      // Public Supabase Storage URLs are stable and intentionally kept.
+      entries: snapshot.config.entries.map(e => ({
+        ...e,
+        imageUrl: e.imageUrl?.startsWith('blob:') ? null : (e.imageUrl ?? null),
+      })),
     },
   }
 

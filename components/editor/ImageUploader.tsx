@@ -6,6 +6,7 @@ import { useWheelStore } from '@/store/wheelStore'
 import { v4 as uuid } from 'uuid'
 import { WheelEntry } from '@/types/wheel'
 import { storeImageBlob } from '@/lib/persistence'
+import { supabase } from '@/lib/supabase'
 import { clsx } from 'clsx'
 
 interface Props {
@@ -19,21 +20,46 @@ export default function ImageUploader({ useFilenamesAsNames }: Props) {
   const onDrop = useCallback(
     async (acceptedFiles: File[]) => {
       const newEntries: WheelEntry[] = []
+      // Track which entries still need their imageUrl replaced with the public URL
+      const uploadJobs: Array<{ entryId: string; imageId: string; file: File }> = []
+
       for (const file of acceptedFiles) {
         const imageId = uuid()
-        // Persist the blob to IndexedDB so the image survives a refresh.
+        const entryId = uuid()
+        // Persist blob locally for offline/restore support
         await storeImageBlob(imageId, file)
+        // Use a blob URL for instant rendering while the Supabase upload runs
         const imageUrl = URL.createObjectURL(file)
-        const rawName = file.name.replace(/\.[^/.]+$/, '') // strip extension
+        const rawName = file.name.replace(/\.[^/.]+$/, '')
         newEntries.push({
-          id: uuid(),
+          id: entryId,
           name: useFilenamesAsNames ? rawName : '',
           imageId,
           imageUrl,
           weight: 1,
         })
+        uploadJobs.push({ entryId, imageId, file })
       }
+
       addEntries(newEntries)
+
+      // Upload each image to Supabase Storage so live viewers can render them.
+      // Once uploaded, replace the blob: URL with the stable public URL.
+      for (const { entryId, imageId, file } of uploadJobs) {
+        try {
+          const { error } = await supabase.storage
+            .from('wheel-images')
+            .upload(imageId, file, { upsert: true })
+          if (error) {
+            console.warn('[ImageUploader] Storage upload error:', error.message)
+            continue
+          }
+          const { data } = supabase.storage.from('wheel-images').getPublicUrl(imageId)
+          useWheelStore.getState().updateEntry(entryId, { imageUrl: data.publicUrl })
+        } catch (e) {
+          console.warn('[ImageUploader] Storage upload failed:', e)
+        }
+      }
     },
     [addEntries, useFilenamesAsNames]
   )
