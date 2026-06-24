@@ -16,6 +16,9 @@ export default function LiveRoomView() {
 
   const [status, setStatus] = useState<Status>('loading')
   const [snapshot, setSnapshot] = useState<WheelSnapshot | null>(null)
+  // Stored for future spin/result syncing — not used for rendering yet.
+  const [currentEvent, setCurrentEvent] = useState<Record<string, unknown> | null>(null)
+  const [connected, setConnected] = useState(false)
 
   useEffect(() => {
     if (!roomCode) {
@@ -26,7 +29,7 @@ export default function LiveRoomView() {
     async function load() {
       const { data, error } = await supabase
         .from('live_draw_rooms')
-        .select('wheel_state')
+        .select('wheel_state, current_event')
         .eq('room_code', roomCode)
         .single()
 
@@ -36,11 +39,39 @@ export default function LiveRoomView() {
       }
 
       setSnapshot(data.wheel_state as WheelSnapshot)
+      setCurrentEvent((data.current_event as Record<string, unknown>) ?? null)
       setStatus('ready')
     }
 
     load()
+
+    const channel = supabase
+      .channel(`live_room_${roomCode}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'live_draw_rooms',
+          filter: `room_code=eq.${roomCode}`,
+        },
+        (payload) => {
+          const row = payload.new as { wheel_state: WheelSnapshot; current_event: Record<string, unknown> | null }
+          setSnapshot(row.wheel_state)
+          setCurrentEvent(row.current_event ?? null)
+        }
+      )
+      .subscribe((s) => {
+        setConnected(s === 'SUBSCRIBED')
+      })
+
+    return () => {
+      supabase.removeChannel(channel)
+    }
   }, [roomCode])
+
+  // Suppress unused-variable warning until spin syncing is built.
+  void currentEvent
 
   if (status === 'loading') {
     return (
@@ -109,9 +140,16 @@ export default function LiveRoomView() {
         />
       </div>
 
-      <p className="relative z-10 mt-6 text-xs uppercase tracking-[0.2em] text-[var(--muted)]">
-        Live · {roomCode}
-      </p>
+      {/* Connection indicator */}
+      <div className="relative z-10 mt-6 flex items-center gap-2">
+        <span
+          className={`inline-block w-1.5 h-1.5 rounded-full ${connected ? 'bg-green-400' : 'bg-[var(--muted)] opacity-40'}`}
+          aria-hidden="true"
+        />
+        <p className="text-xs uppercase tracking-[0.2em] text-[var(--muted)]">
+          {connected ? 'Live' : 'Connecting'} · {roomCode}
+        </p>
+      </div>
     </main>
   )
 }
