@@ -12,7 +12,7 @@ interface Props {
 }
 
 export default function LiveDrawModal({ open, onClose }: Props) {
-  const { config, wheelMode, autoRemoveWinner } = useWheelStore()
+  const { config, wheelMode, autoRemoveWinner, activeUploadCount } = useWheelStore()
   // Initialise from localStorage so re-opening the modal shows the existing
   // active room rather than "Start Live Draw", preventing accidental duplicates.
   const [roomCode, setRoomCode] = useState<string | null>(() => getActiveRoomCode())
@@ -24,9 +24,11 @@ export default function LiveDrawModal({ open, onClose }: Props) {
     ? `${typeof window !== 'undefined' ? window.location.origin : ''}/live?room=${roomCode}`
     : null
 
-  // True while any entry still has a session-only blob: URL — means the Supabase
-  // Storage upload hasn't finished yet and the snapshot would lose those images.
-  const hasPendingUploads = config.entries.some(e => e.imageUrl?.startsWith('blob:'))
+  // Block room creation only while uploads are actively in-flight (counter > 0).
+  // Using a counter rather than scanning for blob: URLs means the modal unblocks
+  // as soon as every upload promise settles — failed uploads clear their blob:
+  // URL and decrement the counter, so nothing can stay stuck forever.
+  const hasPendingUploads = activeUploadCount > 0
 
   async function handleStart() {
     setLoading(true)

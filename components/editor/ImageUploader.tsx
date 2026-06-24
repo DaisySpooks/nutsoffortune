@@ -13,6 +13,44 @@ interface Props {
   useFilenamesAsNames: boolean
 }
 
+const MAX_PX = 1024  // longest side after resize
+
+// Returns true if canvas.toBlob actually produces WebP (Safari <14 produces PNG).
+function detectWebPSupport(): boolean {
+  try {
+    const c = document.createElement('canvas')
+    c.width = 1; c.height = 1
+    return c.toDataURL('image/webp').startsWith('data:image/webp')
+  } catch {
+    return false
+  }
+}
+
+async function compressImage(file: File): Promise<{ blob: Blob; contentType: string }> {
+  const bitmap = await createImageBitmap(file)
+  const { width: w, height: h } = bitmap
+
+  const scale = Math.min(1, MAX_PX / Math.max(w, h))
+  const canvas = document.createElement('canvas')
+  canvas.width = Math.round(w * scale)
+  canvas.height = Math.round(h * scale)
+
+  const ctx = canvas.getContext('2d')
+  if (!ctx) throw new Error('canvas 2d not available')
+  ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height)
+  bitmap.close()
+
+  const mimeType = detectWebPSupport() ? 'image/webp' : 'image/jpeg'
+  const blob = await new Promise<Blob>((resolve, reject) =>
+    canvas.toBlob(
+      (b) => (b ? resolve(b) : reject(new Error('toBlob returned null'))),
+      mimeType,
+      0.85
+    )
+  )
+  return { blob, contentType: mimeType }
+}
+
 export default function ImageUploader({ useFilenamesAsNames }: Props) {
   const { addEntries } = useWheelStore()
   const [isDragActive, setIsDragActive] = useState(false)
@@ -36,31 +74,37 @@ export default function ImageUploader({ useFilenamesAsNames }: Props) {
 
       addEntries(newEntries)
 
-      // Upload to Supabase Storage so live viewers can render the same images.
-      // No upsert — each imageId is a fresh UUID so collisions cannot occur, and
-      // upsert requires UPDATE permission which the anon policy does not grant.
+      // Track in-flight uploads with a counter so LiveDrawModal can unblock as
+      // soon as all promises settle — regardless of any stale blob: URLs.
+      const store = useWheelStore.getState()
+      store.incrementUploadCount(uploadJobs.length)
+
       let failures = 0
-      for (const { entryId, imageId, file } of uploadJobs) {
-        try {
-          const { error } = await supabase.storage
-            .from('wheel-images')
-            .upload(imageId, file)
-          if (error) {
-            console.warn('[ImageUploader] Storage upload error:', imageId, error.message)
-            // Clear the blob: URL so the Live modal doesn't stay stuck
+      await Promise.allSettled(
+        uploadJobs.map(async ({ entryId, imageId, file }) => {
+          try {
+            const { blob, contentType } = await compressImage(file)
+            console.log(
+              `[ImageUploader] ${file.name}: ${(file.size / 1024).toFixed(0)} KB → ${(blob.size / 1024).toFixed(0)} KB (${contentType})`
+            )
+            const { error } = await supabase.storage
+              .from('wheel-images')
+              .upload(imageId, blob, { contentType })
+            if (error) throw error
+            const { data } = supabase.storage.from('wheel-images').getPublicUrl(imageId)
+            console.log('[ImageUploader] Uploaded', imageId, '→', data.publicUrl)
+            useWheelStore.getState().updateEntry(entryId, { imageUrl: data.publicUrl })
+          } catch (e) {
+            console.warn('[ImageUploader] Upload failed for', imageId, e)
+            // Clear the blob: URL so it is not treated as pending by other code
             useWheelStore.getState().updateEntry(entryId, { imageUrl: null })
             failures++
-            continue
+          } finally {
+            useWheelStore.getState().decrementUploadCount()
           }
-          const { data } = supabase.storage.from('wheel-images').getPublicUrl(imageId)
-          console.log('[ImageUploader] Uploaded', imageId, '→', data.publicUrl)
-          useWheelStore.getState().updateEntry(entryId, { imageUrl: data.publicUrl })
-        } catch (e) {
-          console.warn('[ImageUploader] Storage upload failed:', imageId, e)
-          useWheelStore.getState().updateEntry(entryId, { imageUrl: null })
-          failures++
-        }
-      }
+        })
+      )
+
       if (failures > 0) setFailedCount(failures)
     },
     [addEntries, useFilenamesAsNames]
@@ -96,7 +140,7 @@ export default function ImageUploader({ useFilenamesAsNames }: Props) {
       </div>
       {failedCount > 0 && (
         <p className="text-xs text-red-400">
-          {failedCount} image{failedCount > 1 ? 's' : ''} failed to upload to Supabase Storage. {failedCount > 1 ? 'They' : 'It'} will not appear in the live viewer.
+          {failedCount} image{failedCount > 1 ? 's' : ''} failed to upload — {failedCount > 1 ? 'they' : 'it'} will not appear in the live viewer.
         </p>
       )}
     </div>

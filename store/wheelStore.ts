@@ -34,6 +34,13 @@ interface WheelStore {
   // Snapshot of entries at last load — null when no wheel has been loaded or wheel was new
   originalEntries: WheelEntry[] | null
 
+  // Number of image uploads currently in-flight. Drives LiveDrawModal pending state.
+  // Using a counter (not a blob: URL scan) so the modal unblocks as soon as all
+  // upload promises settle, regardless of whether any blob: URLs remain stale.
+  activeUploadCount: number
+  incrementUploadCount: (by: number) => void
+  decrementUploadCount: () => void
+
   // Entry actions
   addEntries: (entries: WheelEntry[]) => void
   setEntries: (entries: WheelEntry[]) => void
@@ -96,6 +103,11 @@ export const useWheelStore = create<WheelStore>()(
     history: [],
     savedWheels: [],
     originalEntries: null,
+    activeUploadCount: 0,
+    incrementUploadCount: (by) =>
+      set((s) => { s.activeUploadCount += by }),
+    decrementUploadCount: () =>
+      set((s) => { s.activeUploadCount = Math.max(0, s.activeUploadCount - 1) }),
 
     addEntries: (entries) =>
       set((s) => {
