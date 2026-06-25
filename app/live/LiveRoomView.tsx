@@ -395,7 +395,7 @@ export default function LiveRoomView() {
       className="absolute bottom-5 left-5 z-30 inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold uppercase tracking-wider border border-[var(--border-mid)] text-[var(--muted)] bg-black/40 hover:text-[var(--gold)] hover:border-[var(--border-accent)] transition-colors"
       aria-pressed={soundEnabled}
     >
-      {soundEnabled ? 'Sound On' : 'Enable Sound'}
+      {soundEnabled ? 'Disable Sound' : 'Enable Sound'}
     </button>
   )
 
@@ -467,10 +467,14 @@ export default function LiveRoomView() {
     )
   }
 
+  // ── Mobile layout ────────────────────────────────────────────────────────
+  // Title, wheel, and bottom controls are all in-flow (no absolute positioning)
+  // so nothing overlaps or hides behind browser chrome.
   return (
     <main
-      className="relative flex h-screen flex-col items-center justify-center overflow-hidden gap-6"
+      className="relative flex flex-col items-center overflow-hidden"
       style={{
+        height: '100svh',
         backgroundImage: 'url(/backgrounds/wheel-room.png)',
         backgroundSize: 'cover',
         backgroundPosition: 'center',
@@ -478,19 +482,57 @@ export default function LiveRoomView() {
     >
       {backgroundVideo}
       {bgOverlay}
-      {title}
 
-      <div
-        className="relative z-10"
-        style={{ width: 'min(90vw, 90vh, 560px)', aspectRatio: '1 / 1' }}
-      >
-        {wheelRing}
+      {/* Title — in-flow so it can't overlap the wheel */}
+      <h1 className="relative z-10 w-full shrink-0 px-4 pt-4 pb-1 text-xl font-bold text-[var(--gold)] tracking-[0.12em] uppercase text-glow text-center">
+        {config.name}
+      </h1>
+
+      {/* Wheel — fills remaining space between title and bottom bar */}
+      <div className="relative z-10 flex flex-1 min-h-0 w-full items-center justify-center py-2">
+        <div style={{ width: 'min(88vw, 65svh)', aspectRatio: '1 / 1' }}>
+          {wheelRing}
+        </div>
       </div>
 
+      {/* Winner strip — shown above the bottom bar when a winner is revealed */}
+      {viewerWinner && (
+        <div className="relative z-30 w-full shrink-0 text-center pointer-events-none px-4 pb-1">
+          <p className="text-xs uppercase tracking-[0.2em] text-[var(--muted)]">
+            {isPrizeMode ? 'Prize' : 'Winner'}
+          </p>
+          <p className="text-lg font-bold text-[var(--gold)] text-glow break-words leading-tight">
+            {viewerWinner.name}
+          </p>
+        </div>
+      )}
+
+      {/* Bottom bar — in-flow with safe-area padding so it clears browser chrome */}
+      <div
+        className="relative z-30 w-full shrink-0 flex items-center justify-between px-4 pt-2"
+        style={{ paddingBottom: 'max(env(safe-area-inset-bottom, 0px), 14px)' }}
+      >
+        <button
+          onClick={toggleSound}
+          className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold uppercase tracking-wider border border-[var(--border-mid)] text-[var(--muted)] bg-black/40 hover:text-[var(--gold)] hover:border-[var(--border-accent)] transition-colors"
+          aria-pressed={soundEnabled}
+        >
+          {soundEnabled ? 'Sound On' : 'Enable Sound'}
+        </button>
+
+        <div className="flex items-center gap-2">
+          <span
+            className={`inline-block w-1.5 h-1.5 rounded-full ${connected ? 'bg-green-400' : 'bg-[var(--muted)] opacity-40'}`}
+            aria-hidden="true"
+          />
+          <p className="text-xs uppercase tracking-[0.2em] text-[var(--muted)]">
+            {connected ? 'Live' : 'Connecting'} · {roomCode}
+          </p>
+        </div>
+      </div>
+
+      {/* Full-screen winner overlay (centered, above the flex flow) */}
       {resultReveal}
-      {bottomResult}
-      {soundControl}
-      {connectionIndicator}
     </main>
   )
 }
