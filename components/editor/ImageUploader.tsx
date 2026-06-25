@@ -7,48 +7,11 @@ import { v4 as uuid } from 'uuid'
 import { WheelEntry } from '@/types/wheel'
 import { storeImageBlob } from '@/lib/persistence'
 import { supabase } from '@/lib/supabase'
+import { compressImage } from '@/lib/imageUtils'
 import { clsx } from 'clsx'
 
 interface Props {
   useFilenamesAsNames: boolean
-}
-
-const MAX_PX = 1024  // longest side after resize
-
-// Returns true if canvas.toBlob actually produces WebP (Safari <14 produces PNG).
-function detectWebPSupport(): boolean {
-  try {
-    const c = document.createElement('canvas')
-    c.width = 1; c.height = 1
-    return c.toDataURL('image/webp').startsWith('data:image/webp')
-  } catch {
-    return false
-  }
-}
-
-async function compressImage(file: File): Promise<{ blob: Blob; contentType: string }> {
-  const bitmap = await createImageBitmap(file)
-  const { width: w, height: h } = bitmap
-
-  const scale = Math.min(1, MAX_PX / Math.max(w, h))
-  const canvas = document.createElement('canvas')
-  canvas.width = Math.round(w * scale)
-  canvas.height = Math.round(h * scale)
-
-  const ctx = canvas.getContext('2d')
-  if (!ctx) throw new Error('canvas 2d not available')
-  ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height)
-  bitmap.close()
-
-  const mimeType = detectWebPSupport() ? 'image/webp' : 'image/jpeg'
-  const blob = await new Promise<Blob>((resolve, reject) =>
-    canvas.toBlob(
-      (b) => (b ? resolve(b) : reject(new Error('toBlob returned null'))),
-      mimeType,
-      0.85
-    )
-  )
-  return { blob, contentType: mimeType }
 }
 
 export default function ImageUploader({ useFilenamesAsNames }: Props) {
