@@ -5,17 +5,18 @@ import { useSearchParams } from 'next/navigation'
 import { clsx } from 'clsx'
 import { supabase } from '@/lib/supabase'
 import { getTheme } from '@/lib/colorUtils'
-import { SpinEvent, WheelSnapshot } from '@/lib/liveRoom'
-import { easeOutCubic } from '@/lib/wheelMath'
+import { IntroEvent, SpinEvent, WheelSnapshot } from '@/lib/liveRoom'
+import { detectWinner, easeOutCubic } from '@/lib/wheelMath'
 import { useMediaQuery } from '@/hooks/useMediaQuery'
 import WheelCanvas from '@/components/wheel/WheelCanvas'
 import WheelPointer from '@/components/wheel/WheelPointer'
 
 // Matches the host's presentation-mode constants exactly.
-// The lounge circle in the background art sits 190px right of the section
-// centre; 38.5% from the top matches its vertical position at all viewports.
 const PM_LEFT = 'calc(50vw + 190px)'
 const PM_TOP = '38.5%'
+
+// Must match useSpin.ts — caps tick rate when there are many entries.
+const MIN_TICK_MS = 60
 
 type Status = 'loading' | 'not-found' | 'ready'
 
@@ -38,11 +39,19 @@ export default function LiveRoomView() {
   // Viewer-side spin animation state
   const [viewerAngle, setViewerAngle] = useState(0)
   const [winnerIndex, setWinnerIndex] = useState<number | null>(null)
-  // Winner data for the result reveal overlay — cleared when the host removes the winner
   const [viewerWinner, setViewerWinner] = useState<ViewerWinner | null>(null)
   const rafRef = useRef<number | null>(null)
   const lastReplayedTimestampRef = useRef<number | null>(null)
   const mountTimeRef = useRef(Date.now())
+
+  // Sound state — refs are used in RAF closures (always current value);
+  // the soundEnabled boolean drives the button UI only.
+  const [soundEnabled, setSoundEnabled] = useState(false)
+  const soundEnabledRef = useRef(false)
+  const tickAudioRef = useRef<HTMLAudioElement | null>(null)
+  const introAudioRef = useRef<HTMLAudioElement | null>(null)
+  const lastSliceIdRef = useRef<string | null>(null)
+  const lastTickTimeRef = useRef<number>(0)
 
   // Load room + subscribe to realtime updates
   useEffect(() => {
@@ -86,11 +95,9 @@ export default function LiveRoomView() {
           if (row.wheel_state != null) {
             setSnapshot(row.wheel_state)
             // Clear wheel-slice highlight whenever entries may have changed.
-            // Do NOT clear viewerWinner here — Supabase sends the full row on
-            // every UPDATE (including broadcast_spin_event which only touches
-            // current_event), so clearing here would race against and erase the
-            // reveal that the animation just set. viewerWinner is cleared only
-            // at the start of the next spin.
+            // Do NOT clear viewerWinner — Supabase sends the full row on every
+            // UPDATE so clearing here would race against the reveal the animation
+            // just set. viewerWinner is cleared only at the start of the next spin.
             setWinnerIndex(null)
           }
           setCurrentEvent(row.current_event ?? null)
@@ -105,13 +112,15 @@ export default function LiveRoomView() {
     }
   }, [roomCode])
 
+  // Cancel any in-flight RAF on unmount
   useEffect(() => {
     return () => {
       if (rafRef.current !== null) cancelAnimationFrame(rafRef.current)
+      introAudioRef.current?.pause()
     }
   }, [])
 
-  // Replay spin events from the host
+  // Replay spin events from the host — also drives tick sounds via the RAF loop
   useEffect(() => {
     if (!currentEvent || currentEvent.type !== 'spin' || !snapshot) return
 
@@ -127,12 +136,12 @@ export default function LiveRoomView() {
     }
     setWinnerIndex(null)
     setViewerWinner(null)
+    lastSliceIdRef.current = null
+    lastTickTimeRef.current = 0
 
     const { startAngle, targetAngle, duration } = event
     const elapsed = Math.max(0, Date.now() - event.timestamp)
-    // Capture as non-null so closures can use it without TS complaints — the
-    // guard at the top of this effect already confirmed snapshot is non-null.
-    const snap = snapshot
+    const snap = snapshot  // captured non-null for use in closures
 
     function finishNow() {
       setViewerAngle(targetAngle)
@@ -142,8 +151,6 @@ export default function LiveRoomView() {
       setViewerWinner({ name: event.winnerName, imageUrl: entry?.imageUrl ?? null })
     }
 
-    // If the host's spin already finished (or nearly so), skip the animation
-    // entirely and immediately show the result.
     if (elapsed >= duration) {
       finishNow()
       return
@@ -153,7 +160,19 @@ export default function LiveRoomView() {
 
     const tick = (now: number) => {
       const t = Math.min((now - startTime) / duration, 1)
-      setViewerAngle(startAngle + (targetAngle - startAngle) * easeOutCubic(t))
+      const angle = startAngle + (targetAngle - startAngle) * easeOutCubic(t)
+      setViewerAngle(angle)
+
+      // Tick sound — same slice-boundary detection and throttle as useSpin.ts
+      if (soundEnabledRef.current && tickAudioRef.current && snap.config.entries.length > 0) {
+        const sliceId = detectWinner(angle, snap.config.entries).id
+        if (sliceId !== lastSliceIdRef.current && now - lastTickTimeRef.current > MIN_TICK_MS) {
+          lastSliceIdRef.current = sliceId
+          lastTickTimeRef.current = now
+          tickAudioRef.current.currentTime = 0
+          tickAudioRef.current.play().catch(() => {})
+        }
+      }
 
       if (t < 1) {
         rafRef.current = requestAnimationFrame(tick)
@@ -165,6 +184,59 @@ export default function LiveRoomView() {
 
     rafRef.current = requestAnimationFrame(tick)
   }, [currentEvent, snapshot])
+
+  // React to intro events from the host
+  useEffect(() => {
+    if (!currentEvent || currentEvent.type !== 'intro') return
+    const event = currentEvent as unknown as IntroEvent
+    if (event.timestamp < mountTimeRef.current) return  // stale — ignore
+
+    if (event.playing) {
+      if (soundEnabledRef.current && introAudioRef.current) {
+        introAudioRef.current.currentTime = 0
+        introAudioRef.current.play().catch(() => {})
+      }
+    } else {
+      if (introAudioRef.current) {
+        introAudioRef.current.pause()
+        introAudioRef.current.currentTime = 0
+      }
+    }
+  }, [currentEvent])
+
+  // Called on the first "Enable Sound" click — this is the required user gesture
+  // that unlocks audio playback in the browser. After this, RAF loops can call
+  // audio.play() freely.
+  function handleEnableSound() {
+    if (!tickAudioRef.current) {
+      const a = new Audio('/sounds/wheel-tick.mp3')
+      a.volume = 0.15
+      a.preload = 'auto'
+      // Kick a silent play to fully unlock the audio context (iOS Safari requires
+      // an actual play call, not just object creation).
+      a.play().catch(() => {})
+      tickAudioRef.current = a
+    }
+    if (!introAudioRef.current) {
+      const introVol = snapshot?.config.sounds.introMusicVolume ?? 0.8
+      const a = new Audio('/sounds/nuts-of-fortune-intro.mp3')
+      a.volume = introVol
+      a.loop = false
+      introAudioRef.current = a
+    }
+    soundEnabledRef.current = true
+    setSoundEnabled(true)
+
+    // If the host's intro is currently playing, start it for this viewer now.
+    if (
+      currentEvent?.type === 'intro' &&
+      (currentEvent as unknown as IntroEvent).playing &&
+      (currentEvent as unknown as IntroEvent).timestamp >= mountTimeRef.current
+    ) {
+      introAudioRef.current.currentTime = 0
+      introAudioRef.current.play().catch(() => {})
+    }
+  }
 
   if (status === 'loading') {
     return (
@@ -216,7 +288,7 @@ export default function LiveRoomView() {
     />
   )
 
-  const overlay = (
+  const bgOverlay = (
     <div
       aria-hidden="true"
       style={{
@@ -228,8 +300,6 @@ export default function LiveRoomView() {
     />
   )
 
-  // Result reveal — shown after the spin lands, cleared when host removes the winner.
-  // No host controls (no Spin Again, no Remove Winner).
   const resultReveal = viewerWinner ? (
     <div
       className="absolute inset-0 z-20 flex items-center justify-center pointer-events-none"
@@ -253,7 +323,6 @@ export default function LiveRoomView() {
     </div>
   ) : null
 
-  // Bottom result label — mirrors presentation mode's winner display
   const bottomResult = viewerWinner ? (
     <div className="absolute bottom-14 left-1/2 -translate-x-1/2 z-30 text-center pointer-events-none">
       <p className="text-xs uppercase tracking-[0.2em] text-[var(--muted)]">
@@ -277,6 +346,24 @@ export default function LiveRoomView() {
     </div>
   )
 
+  // Sound control — bottom-left corner, same pill style as the host's "Play Intro" button.
+  // Browsers require a user gesture before audio can play; this button is that gesture.
+  const soundControl = (
+    <button
+      onClick={soundEnabled ? undefined : handleEnableSound}
+      className={clsx(
+        'absolute bottom-5 left-5 z-30 inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold uppercase tracking-wider border transition-colors bg-black/40',
+        soundEnabled
+          ? 'border-[var(--border-mid)] text-[var(--muted)] cursor-default'
+          : 'border-[var(--border-mid)] text-[var(--muted)] hover:text-[var(--gold)] hover:border-[var(--border-accent)] cursor-pointer'
+      )}
+      aria-label={soundEnabled ? 'Sound enabled' : 'Enable sound'}
+      disabled={soundEnabled}
+    >
+      {soundEnabled ? 'Sound On' : 'Enable Sound'}
+    </button>
+  )
+
   const wheelRing = (
     <div
       className="wheel-seat glow-ring rounded-full p-1.5"
@@ -296,10 +383,8 @@ export default function LiveRoomView() {
     </div>
   )
 
-  // Title — absolutely positioned so it can never intrude on the wheel's space.
-  // Desktop: constrained to the left half of the lounge scene (wheel occupies the
-  // right half starting at roughly 50vw − 68px). Mobile: full width, wheel is
-  // centered below so no horizontal conflict.
+  // Desktop: title pinned to the left safe zone (wheel occupies right half from ~50vw−68px).
+  // Mobile: full-width centered (wheel is below in flex flow, no horizontal overlap).
   const title = (
     <h1 className={clsx(
       'absolute top-5 z-10 text-2xl font-bold text-[var(--gold)] tracking-[0.12em] uppercase text-glow pointer-events-none text-center',
@@ -322,7 +407,7 @@ export default function LiveRoomView() {
         }}
       >
         {backgroundVideo}
-        {overlay}
+        {bgOverlay}
         {title}
 
         <div
@@ -341,6 +426,7 @@ export default function LiveRoomView() {
 
         {resultReveal}
         {bottomResult}
+        {soundControl}
         {connectionIndicator}
       </main>
     )
@@ -356,7 +442,7 @@ export default function LiveRoomView() {
       }}
     >
       {backgroundVideo}
-      {overlay}
+      {bgOverlay}
       {title}
 
       <div
@@ -368,6 +454,7 @@ export default function LiveRoomView() {
 
       {resultReveal}
       {bottomResult}
+      {soundControl}
       {connectionIndicator}
     </main>
   )

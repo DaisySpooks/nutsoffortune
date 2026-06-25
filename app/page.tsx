@@ -12,6 +12,7 @@ import WheelPointer from '@/components/wheel/WheelPointer'
 import SpinButton from '@/components/wheel/SpinButton'
 import EditorPanel from '@/components/editor/EditorPanel'
 import WinnerModal from '@/components/modals/WinnerModal'
+import { broadcastIntroEvent } from '@/lib/liveRoom'
 
 // Presentation-mode focal point — lounge circle center as fractions of the
 // wheel stage. X is (50% + 190px) because the circle sits 190px right of the
@@ -67,11 +68,13 @@ export default function Home() {
       const audio = introAudioRef.current
       if (audio) { audio.pause(); audio.currentTime = 0 }
       setIsIntroPlaying(false)
+      broadcastIntroEvent(false)
     } else {
       const audio = getIntroAudio()
       audio.currentTime = 0
       audio.play()
       setIsIntroPlaying(true)
+      broadcastIntroEvent(true)
     }
   }
 

@@ -29,6 +29,12 @@ export interface SpinEvent {
   timestamp: number
 }
 
+export interface IntroEvent {
+  type: 'intro'
+  playing: boolean
+  timestamp: number
+}
+
 const HOST_TOKEN_KEY = (roomCode: string) => `live_host_token_${roomCode}`
 const ACTIVE_ROOM_KEY = 'live_active_room_code'
 
@@ -94,6 +100,23 @@ export async function broadcastWheelState(snapshot: WheelSnapshot): Promise<void
   if (error) {
     console.error('[liveRoom] broadcastWheelState: RPC error', error)
   }
+}
+
+// Notify viewers that the host started or stopped intro music.
+// Reuses the broadcast_spin_event RPC — it writes arbitrary JSON to current_event.
+// Viewers guard on event.type so spin and intro events don't interfere.
+export async function broadcastIntroEvent(playing: boolean): Promise<void> {
+  const roomCode = getActiveRoomCode()
+  if (!roomCode) return
+  const hostToken = getStoredHostToken(roomCode)
+  if (!hostToken) return
+  const event: IntroEvent = { type: 'intro', playing, timestamp: Date.now() }
+  const { error } = await supabase.rpc('broadcast_spin_event', {
+    p_room_code: roomCode,
+    p_host_token: hostToken,
+    p_event: event,
+  })
+  if (error) console.error('[liveRoom] broadcastIntroEvent: RPC error', error)
 }
 
 // Fire-and-forget: write a spin event to current_event so viewers can replay it.
