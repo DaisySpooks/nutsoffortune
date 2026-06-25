@@ -177,7 +177,7 @@ export default function LiveRoomView() {
           lastSliceIdRef.current = sliceId
           lastTickTimeRef.current = now
           tickAudioRef.current.currentTime = 0
-          tickAudioRef.current.play().catch(() => {})
+          tickAudioRef.current.play().catch(() => { })
         }
       }
 
@@ -196,12 +196,24 @@ export default function LiveRoomView() {
   useEffect(() => {
     if (!currentEvent || currentEvent.type !== 'intro') return
     const event = currentEvent as unknown as IntroEvent
-    if (event.timestamp < mountTimeRef.current) return  // stale — ignore
+    if (event.timestamp < mountTimeRef.current) return // stale — ignore
 
     if (event.playing) {
       if (soundEnabledRef.current && introAudioRef.current) {
-        introAudioRef.current.currentTime = 0
-        introAudioRef.current.play().catch(() => {})
+        const startedAt = event.startedAt ?? event.timestamp
+        const elapsedSeconds = Math.max(0, (Date.now() - startedAt) / 1000)
+
+        if (
+          Number.isFinite(introAudioRef.current.duration) &&
+          elapsedSeconds >= introAudioRef.current.duration
+        ) {
+          introAudioRef.current.pause()
+          introAudioRef.current.currentTime = 0
+          return
+        }
+
+        introAudioRef.current.currentTime = elapsedSeconds
+        introAudioRef.current.play().catch(() => { })
       }
     } else {
       if (introAudioRef.current) {
@@ -210,6 +222,7 @@ export default function LiveRoomView() {
       }
     }
   }, [currentEvent])
+
 
   // Toggles viewer sound on/off. The first enable is the browser user-gesture
   // that unlocks autoplay; subsequent toggles reuse the already-created objects.
@@ -222,7 +235,7 @@ export default function LiveRoomView() {
         const a = new Audio('/sounds/wheel-tick.mp3')
         a.volume = 0.15
         a.preload = 'auto'
-        a.play().catch(() => {})
+        a.play().catch(() => { })
         tickAudioRef.current = a
       }
       if (!introAudioRef.current) {
@@ -240,7 +253,7 @@ export default function LiveRoomView() {
         (currentEvent as unknown as IntroEvent).timestamp >= mountTimeRef.current
       ) {
         introAudioRef.current.currentTime = 0
-        introAudioRef.current.play().catch(() => {})
+        introAudioRef.current.play().catch(() => { })
       }
     } else {
       // ── Disable ─────────────────────────────────────────────────────────────
@@ -400,7 +413,7 @@ export default function LiveRoomView() {
         winnerIndex={winnerIndex}
         backgroundUrl={null}
         editMode={false}
-        onReorder={() => {}}
+        onReorder={() => { }}
       />
     </div>
   )

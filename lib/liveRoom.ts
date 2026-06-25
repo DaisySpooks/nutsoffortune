@@ -33,6 +33,7 @@ export interface IntroEvent {
   type: 'intro'
   playing: boolean
   timestamp: number
+  startedAt?: number
 }
 
 const HOST_TOKEN_KEY = (roomCode: string) => `live_host_token_${roomCode}`
@@ -111,14 +112,25 @@ export async function broadcastWheelState(snapshot: WheelSnapshot): Promise<void
 export async function broadcastIntroEvent(playing: boolean): Promise<void> {
   const roomCode = getActiveRoomCode()
   if (!roomCode) return
+
   const hostToken = getStoredHostToken(roomCode)
   if (!hostToken) return
-  const event: IntroEvent = { type: 'intro', playing, timestamp: Date.now() }
+
+  const now = Date.now()
+
+  const event: IntroEvent = {
+    type: 'intro',
+    playing,
+    timestamp: now,
+    startedAt: playing ? now : undefined,
+  }
+
   const { error } = await supabase.rpc('broadcast_spin_event', {
     p_room_code: roomCode,
     p_host_token: hostToken,
     p_event: event,
   })
+
   if (error) console.error('[liveRoom] broadcastIntroEvent: RPC error', error)
 }
 
