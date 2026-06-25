@@ -475,7 +475,7 @@ export default function LiveRoomView() {
       className="relative flex flex-col items-center overflow-hidden"
       style={{
         height: '100svh',
-        backgroundImage: 'url(/backgrounds/wheel-room.png)',
+        backgroundImage: 'url(/backgrounds/wheel-room-mobile.png)',
         backgroundSize: 'cover',
         backgroundPosition: 'center',
       }}
