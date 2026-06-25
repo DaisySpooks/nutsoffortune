@@ -480,7 +480,6 @@ export default function LiveRoomView() {
         backgroundPosition: 'center',
       }}
     >
-      {backgroundVideo}
       {bgOverlay}
 
       {/* Title — in-flow so it can't overlap the wheel */}
