@@ -31,6 +31,7 @@ export default function LiveRoomView() {
   const searchParams = useSearchParams()
   const roomCode = searchParams.get('room') ?? ''
   const isDesktop = useMediaQuery('(min-width: 1024px)')
+  const isMobileLandscape = useMediaQuery('(orientation: landscape) and (max-width: 1023px)')
 
   const [status, setStatus] = useState<Status>('loading')
   const [snapshot, setSnapshot] = useState<WheelSnapshot | null>(null)
@@ -464,6 +465,20 @@ export default function LiveRoomView() {
         {soundControl}
         {connectionIndicator}
       </main>
+    )
+  }
+
+  // ── Mobile landscape guard ───────────────────────────────────────────────
+  if (isMobileLandscape) {
+    return (
+      <div className="flex h-screen flex-col items-center justify-center gap-3 bg-[#0e0905] px-8 text-center">
+        <p className="text-lg font-bold text-[var(--gold)] tracking-[0.08em] uppercase text-glow">
+          Rotate your phone back to portrait mode
+        </p>
+        <p className="text-sm text-[var(--muted)]">
+          Nuts of Fortune works best upright.
+        </p>
+      </div>
     )
   }
 
