@@ -144,12 +144,22 @@ export default function LiveRoomView() {
     }
     setWinnerIndex(null)
     setViewerWinner(null)
-    lastSliceIdRef.current = null
-    lastTickTimeRef.current = 0
 
     const { startAngle, targetAngle, duration } = event
     const elapsed = Math.max(0, Date.now() - event.timestamp)
     const snap = snapshot  // captured non-null for use in closures
+
+    // Seed tick refs at the compensated start position so that:
+    // (a) the first RAF frame does not fire a spurious immediate tick for the
+    //     slice that was already under the pointer before animation begins, and
+    // (b) enabling sound mid-spin cannot unconditionally fire a tick because
+    //     lastTickTimeRef starts at now rather than 0.
+    const initialT = Math.min(elapsed / duration, 1)
+    const initialAngle = startAngle + (targetAngle - startAngle) * easeOutCubic(initialT)
+    lastSliceIdRef.current = snap.config.entries.length > 0
+      ? detectWinner(initialAngle, snap.config.entries).id
+      : null
+    lastTickTimeRef.current = performance.now()
 
     function finishNow() {
       setViewerAngle(targetAngle)
