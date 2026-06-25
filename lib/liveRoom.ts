@@ -65,6 +65,9 @@ export async function createLiveRoom(snapshot: WheelSnapshot): Promise<{ roomCod
 
   if (error) throw new Error(error.message)
 
+  // Best-effort cleanup of rooms older than 24 hours — does not block creation.
+  void supabase.rpc('cleanup_expired_live_rooms')
+
   localStorage.setItem(HOST_TOKEN_KEY(roomCode), hostToken)
   localStorage.setItem(ACTIVE_ROOM_KEY, roomCode)
   console.log('[liveRoom] Room created, active room set to:', roomCode)
