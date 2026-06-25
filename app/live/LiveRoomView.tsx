@@ -18,7 +18,9 @@ const PM_TOP = '38.5%'
 // Must match useSpin.ts — caps tick rate when there are many entries.
 const MIN_TICK_MS = 60
 
-type Status = 'loading' | 'not-found' | 'ready'
+type Status = 'loading' | 'not-found' | 'expired' | 'ready'
+
+const ROOM_TTL_MS = 24 * 60 * 60 * 1000  // 24 hours
 
 interface ViewerWinner {
   name: string
@@ -63,13 +65,18 @@ export default function LiveRoomView() {
     async function load() {
       const { data, error } = await supabase
         .from('live_draw_rooms')
-        .select('wheel_state, current_event')
+        .select('wheel_state, current_event, created_at')
         .eq('room_code', roomCode)
         .single()
 
       if (error || !data) {
         console.error('[LiveRoomView] fetch error:', error, '| data:', data)
         setStatus('not-found')
+        return
+      }
+
+      if (Date.now() - new Date(data.created_at as string).getTime() > ROOM_TTL_MS) {
+        setStatus('expired')
         return
       }
 
@@ -204,37 +211,47 @@ export default function LiveRoomView() {
     }
   }, [currentEvent])
 
-  // Called on the first "Enable Sound" click — this is the required user gesture
-  // that unlocks audio playback in the browser. After this, RAF loops can call
-  // audio.play() freely.
-  function handleEnableSound() {
-    if (!tickAudioRef.current) {
-      const a = new Audio('/sounds/wheel-tick.mp3')
-      a.volume = 0.15
-      a.preload = 'auto'
-      // Kick a silent play to fully unlock the audio context (iOS Safari requires
-      // an actual play call, not just object creation).
-      a.play().catch(() => {})
-      tickAudioRef.current = a
-    }
-    if (!introAudioRef.current) {
-      const introVol = snapshot?.config.sounds.introMusicVolume ?? 0.8
-      const a = new Audio('/sounds/nuts-of-fortune-intro.mp3')
-      a.volume = introVol
-      a.loop = false
-      introAudioRef.current = a
-    }
-    soundEnabledRef.current = true
-    setSoundEnabled(true)
-
-    // If the host's intro is currently playing, start it for this viewer now.
-    if (
-      currentEvent?.type === 'intro' &&
-      (currentEvent as unknown as IntroEvent).playing &&
-      (currentEvent as unknown as IntroEvent).timestamp >= mountTimeRef.current
-    ) {
-      introAudioRef.current.currentTime = 0
-      introAudioRef.current.play().catch(() => {})
+  // Toggles viewer sound on/off. The first enable is the browser user-gesture
+  // that unlocks autoplay; subsequent toggles reuse the already-created objects.
+  function toggleSound() {
+    if (!soundEnabled) {
+      // ── Enable ──────────────────────────────────────────────────────────────
+      if (!tickAudioRef.current) {
+        // First time: create audio and do a silent play to unlock the audio
+        // context (iOS Safari requires an actual play call, not just construction).
+        const a = new Audio('/sounds/wheel-tick.mp3')
+        a.volume = 0.15
+        a.preload = 'auto'
+        a.play().catch(() => {})
+        tickAudioRef.current = a
+      }
+      if (!introAudioRef.current) {
+        const a = new Audio('/sounds/nuts-of-fortune-intro.mp3')
+        a.volume = snapshot?.config.sounds.introMusicVolume ?? 0.8
+        a.loop = false
+        introAudioRef.current = a
+      }
+      soundEnabledRef.current = true
+      setSoundEnabled(true)
+      // If the host's intro is currently playing, start it for this viewer now.
+      if (
+        currentEvent?.type === 'intro' &&
+        (currentEvent as unknown as IntroEvent).playing &&
+        (currentEvent as unknown as IntroEvent).timestamp >= mountTimeRef.current
+      ) {
+        introAudioRef.current.currentTime = 0
+        introAudioRef.current.play().catch(() => {})
+      }
+    } else {
+      // ── Disable ─────────────────────────────────────────────────────────────
+      soundEnabledRef.current = false
+      setSoundEnabled(false)
+      // Stop intro music immediately; tick sounds stop naturally since the RAF
+      // loop checks soundEnabledRef.current before each play() call.
+      if (introAudioRef.current) {
+        introAudioRef.current.pause()
+        introAudioRef.current.currentTime = 0
+      }
     }
   }
 
@@ -243,6 +260,17 @@ export default function LiveRoomView() {
       <div className="flex h-screen items-center justify-center bg-[#0e0905]">
         <p className="text-sm uppercase tracking-[0.2em] text-[var(--muted)] animate-pulse">
           Loading room…
+        </p>
+      </div>
+    )
+  }
+
+  if (status === 'expired') {
+    return (
+      <div className="flex h-screen flex-col items-center justify-center gap-3 bg-[#0e0905]">
+        <p className="text-lg font-semibold text-[var(--gold)]">Room expired</p>
+        <p className="text-sm text-[var(--muted)]">
+          Live rooms are only available for 24 hours. Ask the host to start a new live room.
         </p>
       </div>
     )
@@ -346,19 +374,13 @@ export default function LiveRoomView() {
     </div>
   )
 
-  // Sound control — bottom-left corner, same pill style as the host's "Play Intro" button.
-  // Browsers require a user gesture before audio can play; this button is that gesture.
+  // Sound toggle — bottom-left corner, same pill style as the host's "Play Intro" button.
+  // First click is the browser user-gesture that unlocks autoplay; subsequent clicks toggle.
   const soundControl = (
     <button
-      onClick={soundEnabled ? undefined : handleEnableSound}
-      className={clsx(
-        'absolute bottom-5 left-5 z-30 inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold uppercase tracking-wider border transition-colors bg-black/40',
-        soundEnabled
-          ? 'border-[var(--border-mid)] text-[var(--muted)] cursor-default'
-          : 'border-[var(--border-mid)] text-[var(--muted)] hover:text-[var(--gold)] hover:border-[var(--border-accent)] cursor-pointer'
-      )}
-      aria-label={soundEnabled ? 'Sound enabled' : 'Enable sound'}
-      disabled={soundEnabled}
+      onClick={toggleSound}
+      className="absolute bottom-5 left-5 z-30 inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold uppercase tracking-wider border border-[var(--border-mid)] text-[var(--muted)] bg-black/40 hover:text-[var(--gold)] hover:border-[var(--border-accent)] transition-colors"
+      aria-pressed={soundEnabled}
     >
       {soundEnabled ? 'Sound On' : 'Enable Sound'}
     </button>
