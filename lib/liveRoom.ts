@@ -80,10 +80,20 @@ function safeEntries(snapshot: WheelSnapshot): WheelSnapshot {
     ...snapshot,
     config: {
       ...snapshot.config,
-      entries: snapshot.config.entries.map(e => ({
-        ...e,
-        imageUrl: e.imageUrl?.startsWith('blob:') ? null : (e.imageUrl ?? null),
-      })),
+      entries: snapshot.config.entries.map(e => {
+        // Public https:// URLs are already stable — pass through unchanged.
+        if (e.imageUrl?.startsWith('https://')) return { ...e }
+
+        // blob: URLs are session-local (e.g. after a page refresh the store is
+        // rehydrated with new blob URLs instead of public URLs). Derive the
+        // stable public Storage URL from imageId so viewers don't lose images.
+        if (e.imageId) {
+          const { data } = supabase.storage.from('wheel-images').getPublicUrl(e.imageId)
+          return { ...e, imageUrl: data.publicUrl }
+        }
+
+        return { ...e, imageUrl: null }
+      }),
     },
   }
 }
