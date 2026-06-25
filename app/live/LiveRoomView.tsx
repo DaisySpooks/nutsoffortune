@@ -247,14 +247,25 @@ export default function LiveRoomView() {
       }
       soundEnabledRef.current = true
       setSoundEnabled(true)
-      // If the host's intro is currently playing, start it for this viewer now.
+      // If the host's intro is currently playing, resume at the correct position.
       if (
         currentEvent?.type === 'intro' &&
         (currentEvent as unknown as IntroEvent).playing &&
         (currentEvent as unknown as IntroEvent).timestamp >= mountTimeRef.current
       ) {
-        introAudioRef.current.currentTime = 0
-        introAudioRef.current.play().catch(() => { })
+        const event = currentEvent as unknown as IntroEvent
+        const startedAt = event.startedAt ?? event.timestamp
+        const elapsedSeconds = Math.max(0, (Date.now() - startedAt) / 1000)
+        const audio = introAudioRef.current
+        if (
+          Number.isFinite(audio.duration) &&
+          elapsedSeconds >= audio.duration
+        ) {
+          // Intro already finished — don't restart it.
+        } else {
+          audio.currentTime = elapsedSeconds
+          audio.play().catch(() => { })
+        }
       }
     } else {
       // ── Disable ─────────────────────────────────────────────────────────────
@@ -535,7 +546,7 @@ export default function LiveRoomView() {
           className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold uppercase tracking-wider border border-[var(--border-mid)] text-[var(--muted)] bg-black/40 hover:text-[var(--gold)] hover:border-[var(--border-accent)] transition-colors"
           aria-pressed={soundEnabled}
         >
-          {soundEnabled ? 'Sound On' : 'Enable Sound'}
+          {soundEnabled ? 'Disable Sound' : 'Enable Sound'}
         </button>
 
         <div className="flex items-center gap-2">
