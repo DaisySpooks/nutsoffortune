@@ -495,17 +495,20 @@ export default function LiveRoomView() {
         </div>
       </div>
 
-      {/* Winner strip — shown above the bottom bar when a winner is revealed */}
-      {viewerWinner && (
-        <div className="relative z-30 w-full shrink-0 text-center pointer-events-none px-4 pb-1">
-          <p className="text-xs uppercase tracking-[0.2em] text-[var(--muted)]">
-            {isPrizeMode ? 'Prize' : 'Winner'}
-          </p>
-          <p className="text-lg font-bold text-[var(--gold)] text-glow break-words leading-tight">
-            {viewerWinner.name}
-          </p>
-        </div>
-      )}
+      {/* Winner strip — always rendered so it reserves space and the wheel
+          position stays fixed against the background in all states */}
+      <div className="relative z-30 w-full shrink-0 text-center pointer-events-none px-4 pb-1 min-h-[3rem]">
+        {viewerWinner && (
+          <>
+            <p className="text-xs uppercase tracking-[0.2em] text-[var(--muted)]">
+              {isPrizeMode ? 'Prize' : 'Winner'}
+            </p>
+            <p className="text-lg font-bold text-[var(--gold)] text-glow break-words leading-tight">
+              {viewerWinner.name}
+            </p>
+          </>
+        )}
+      </div>
 
       {/* Bottom bar — in-flow with safe-area padding so it clears browser chrome */}
       <div
