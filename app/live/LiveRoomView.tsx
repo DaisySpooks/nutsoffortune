@@ -477,7 +477,7 @@ export default function LiveRoomView() {
         height: '100svh',
         backgroundImage: 'url(/backgrounds/wheel-room-mobile.png)',
         backgroundSize: 'cover',
-        backgroundPosition: 'center 42%',
+        backgroundPosition: 'center 48%',
         backgroundRepeat: 'no-repeat',
       }}
     >
