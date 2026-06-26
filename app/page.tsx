@@ -36,6 +36,11 @@ export default function Home() {
   // Desktop direct-wheel editing — desktop only, never while spinning.
   const isDesktop = useMediaQuery('(min-width: 1024px)')
   const isWideDesktop = useMediaQuery('(min-width: 1600px)')
+  // Two-stage cramped-desktop fallback (only applies when isDesktop is true).
+  const isDesktopCramped = useMediaQuery('(min-width: 1024px) and (max-height: 599px)')
+  const isDesktopTooSmall = useMediaQuery('(min-width: 1024px) and (max-height: 399px)')
+  // When cramped, the aside stays at width 0; the editor surfaces as an overlay instead.
+  const [crampedEditorOpen, setCrampedEditorOpen] = useState(false)
   const [editMode, setEditMode] = useState(false)
   const [presentationMode, setPresentationMode] = useState(false)
   const [videoLoaded, setVideoLoaded] = useState(false)
@@ -44,6 +49,11 @@ export default function Home() {
   const introAudioRef = useRef<HTMLAudioElement | null>(null)
   const [isIntroPlaying, setIsIntroPlaying] = useState(false)
   const introVolume = config.sounds.introMusicVolume ?? 0.8
+
+  // Close the cramped overlay whenever the viewport recovers to normal desktop size.
+  useEffect(() => {
+    if (!isDesktopCramped) setCrampedEditorOpen(false)
+  }, [isDesktopCramped])
 
   // Keep the audio volume in sync with the persisted setting.
   useEffect(() => {
@@ -99,8 +109,19 @@ export default function Home() {
     ? entries.findIndex(e => e.id === winner.id)
     : null
 
+  // Derived: treat editor as hidden when presentation mode OR cramped-and-collapsed
+  // The aside panel is always width-0 when cramped (overlay takes over) or in presentation mode.
+  const editorHidden = presentationMode || isDesktopCramped
+
   return (
     <main className="flex flex-col lg:flex-row lg:h-screen lg:overflow-hidden">
+      {/* ── Too-small desktop warning overlay ── */}
+      {isDesktopTooSmall && (
+        <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-black/90 text-center px-6">
+          <p className="text-2xl font-bold text-[var(--gold)] tracking-[0.1em] uppercase mb-2">Window too small</p>
+          <p className="text-sm text-[var(--muted)]">Please enlarge your browser window to use the editor.</p>
+        </div>
+      )}
       {/* Wheel section */}
       <section
         className={clsx(
@@ -112,7 +133,7 @@ export default function Home() {
         style={{
           backgroundImage: 'url(/backgrounds/wheel-room.png)',
           backgroundSize: 'cover',
-          backgroundPosition: presentationMode ? 'center' : 'calc((100vw - 420px) / 2 - 113.3vh) 80px',
+          backgroundPosition: editorHidden ? 'center' : 'calc((100vw - 420px) / 2 - 113.3vh) 80px',
         }}
       >
         {/* Animated video background — sits behind all content via DOM order */}
@@ -131,7 +152,7 @@ export default function Home() {
             width: '100%',
             height: '100%',
             objectFit: 'cover',
-            objectPosition: presentationMode ? 'center' : 'calc((100vw - 420px) / 2 - 113.3vh) 80px',
+            objectPosition: editorHidden ? 'center' : 'calc((100vw - 420px) / 2 - 113.3vh) 80px',
             transition: 'opacity 0.6s ease, object-position 0.6s cubic-bezier(0.22, 1, 0.36, 1)',
             opacity: videoLoaded ? 1 : 0,
             pointerEvents: 'none',
@@ -267,6 +288,16 @@ export default function Home() {
               disabled={entries.length < 2}
               onSpin={spin}
             />
+
+            {/* Cramped-desktop: open editor as overlay */}
+            {isDesktopCramped && !crampedEditorOpen && (
+              <button
+                onClick={() => setCrampedEditorOpen(true)}
+                className="absolute bottom-5 right-5 inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold uppercase tracking-wider border border-[var(--border-mid)] text-[var(--muted)] bg-black/40 hover:text-[var(--gold)] hover:border-[var(--border-accent)] transition-colors"
+              >
+                Show Editor
+              </button>
+            )}
           </>
         )}
 
@@ -279,14 +310,75 @@ export default function Home() {
         )}
       </section>
 
+      {/* ── Cramped-desktop editor overlay — slides in from the right, sits above the wheel ── */}
+      {isDesktopCramped && (
+        <div
+          aria-hidden={!crampedEditorOpen}
+          style={{
+            position: 'fixed',
+            inset: 0,
+            zIndex: 40,
+            pointerEvents: crampedEditorOpen ? undefined : 'none',
+          }}
+        >
+          {/* Backdrop */}
+          <div
+            onClick={() => setCrampedEditorOpen(false)}
+            style={{
+              position: 'absolute',
+              inset: 0,
+              background: 'rgba(0,0,0,0.55)',
+              opacity: crampedEditorOpen ? 1 : 0,
+              transition: 'opacity 0.3s ease',
+            }}
+          />
+          {/* Drawer panel */}
+          <div
+            style={{
+              position: 'absolute',
+              top: 0,
+              right: 0,
+              bottom: 0,
+              width: '420px',
+              maxWidth: '90vw',
+              transform: crampedEditorOpen ? 'translateX(0)' : 'translateX(100%)',
+              transition: 'transform 0.35s cubic-bezier(0.22, 1, 0.36, 1)',
+              display: 'flex',
+              flexDirection: 'column',
+            }}
+            className="bg-[var(--panel)] border-l border-[var(--border-mid)]"
+          >
+            {/* Drawer close button */}
+            <div className="px-4 py-2 flex justify-end border-b border-[var(--border-mid)]">
+              <button
+                onClick={() => setCrampedEditorOpen(false)}
+                className="text-xs font-semibold uppercase tracking-wider text-[var(--muted)] hover:text-[var(--gold)] transition-colors"
+              >
+                Close
+              </button>
+            </div>
+            <div className="flex-1 min-h-0 flex flex-col">
+              <EditorPanel
+                editMode={editMode}
+                canEdit={false}
+                isDesktop={isDesktop}
+                isSpinning={isSpinning}
+                onToggleEdit={() => setEditMode(v => !v)}
+                onHide={() => setCrampedEditorOpen(false)}
+              />
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Editor aside — always mounted on desktop so width can animate smoothly */}
       <aside
         className="w-full lg:h-full border-t border-[var(--border-mid)] lg:border-t-0 lg:border-l border-[var(--border-mid)] bg-[var(--panel)] flex flex-col"
         style={isDesktop ? {
-          width: presentationMode ? 0 : '420px',
+          width: editorHidden ? 0 : '420px',
           flexShrink: 0,
           overflow: 'hidden',
-          pointerEvents: presentationMode ? 'none' : undefined,
+          pointerEvents: editorHidden ? 'none' : undefined,
           transition: 'width 0.6s cubic-bezier(0.22, 1, 0.36, 1)',
         } : undefined}
       >
