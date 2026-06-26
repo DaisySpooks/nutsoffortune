@@ -14,16 +14,25 @@ import EditorPanel from '@/components/editor/EditorPanel'
 import WinnerModal from '@/components/modals/WinnerModal'
 import { broadcastIntroEvent, broadcastWheelState } from '@/lib/liveRoom'
 
-// Presentation-mode focal point — lounge circle center as fractions of the
-// wheel stage. X is (50% + 190px) because the circle sits 190px right of the
-// section center when the background is cover+center. Y is 38.5% because
-// height drives cover at all desktop viewports, keeping the circle at a
-// constant fraction of section height regardless of viewport width.
-const PM_LEFT = 'calc(50vw + 190px)'
+// Cover-stage width — matches how object-fit:cover scales the 16:9 background.
+const STAGE_W = 'max(100vw, calc(100vh * 16 / 9))'
+
+// Circle center X: 59.896% of stage from its left edge.
+// In viewport coords: (vw − stage)/2 + 59.896% × stage = 50vw + 9.896% × stage.
+// At 1920×1080: 960 + 0.09896 × 1920 = 960 + 190 = 1150px (same as old hardcoded value).
+const PM_LEFT = `calc(50vw + 0.12 * (${STAGE_W}))`
+
+// Y stays at 38.5% of section height (= 38.5vh in desktop). Exact at 16:9;
+// minor drift at extreme ARs but not worth the complexity to fix.
 const PM_TOP = '38.5%'
-// Half-wheel width, matching the min() size rule — used to place the spin
-// button just below the wheel bottom.
-const PM_HALF_WHEEL = 'min(24vw, 33vh, 260px)'
+
+// Wheel container diameter: 29.167% of stage (= 560px at 1920px stage).
+// Stage-relative so the wheel scales with the circular background frame.
+const PM_WHEEL_SIZE = '560px'
+
+// Half the visual wheel (container × scale(0.923) / 2 = 0.1346 × stage).
+// Used to anchor the spin button just below the wheel bottom.
+const PM_HALF_WHEEL = '260px'
 
 export default function Home() {
   const { config, currentAngle, winner, isSpinning, reorderEntries, wheelMode } = useWheelStore()
@@ -37,10 +46,11 @@ export default function Home() {
   const isDesktop = useMediaQuery('(min-width: 1024px)')
   const isWideDesktop = useMediaQuery('(min-width: 1600px)')
   // Two-stage cramped-desktop fallback (only applies when isDesktop is true).
-  const isDesktopCramped = useMediaQuery('(min-width: 1024px) and (max-height: 599px)')
-  // "Too small" fires when the desktop viewport is narrower than 1200px or shorter than 700px.
-  const isDesktopTooNarrow = useMediaQuery('(min-width: 1024px) and (max-width: 1199px)')
-  const isDesktopTooShort  = useMediaQuery('(min-width: 1024px) and (max-height: 699px)')
+  // Cramped: 600–699px tall — editor collapses to overlay, wheel stage stays usable.
+  const isDesktopCramped = useMediaQuery('(min-width: 1024px) and (max-height: 699px)')
+  // Too small: width < 1050px OR height < 600px — show blocking warning.
+  const isDesktopTooNarrow = useMediaQuery('(min-width: 1024px) and (max-width: 1049px)')
+  const isDesktopTooShort  = useMediaQuery('(min-width: 1024px) and (max-height: 599px)')
   const isDesktopTooSmall  = isDesktopTooNarrow || isDesktopTooShort
   // When cramped, the aside stays at width 0; the editor surfaces as an overlay instead.
   const [crampedEditorOpen, setCrampedEditorOpen] = useState(false)
@@ -191,10 +201,10 @@ export default function Home() {
               position: 'absolute',
               left: presentationMode ? PM_LEFT : 'calc(50vw - 210px)',
               top: presentationMode ? PM_TOP : 'calc(50% - 31px)',
-              width: 'min(90vw, 90vh, 560px)',
+              width: presentationMode ? PM_WHEEL_SIZE : 'min(90vw, 90vh, 560px)',
               aspectRatio: '1 / 1',
               transform: 'translate(-50%, -50%)',
-              transition: 'left 0.6s cubic-bezier(0.22, 1, 0.36, 1), top 0.6s cubic-bezier(0.22, 1, 0.36, 1)',
+              transition: 'left 0.6s cubic-bezier(0.22, 1, 0.36, 1), top 0.6s cubic-bezier(0.22, 1, 0.36, 1), width 0.6s cubic-bezier(0.22, 1, 0.36, 1)',
             }}
           >
             <div

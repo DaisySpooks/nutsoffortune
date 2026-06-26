@@ -479,9 +479,9 @@ export default function LiveRoomView() {
           <div
             style={{
               position: 'absolute',
-              left: '59.896%',
+              left: '63%',
               top: '38.5%',
-              width: '29.167%',
+              width: '36%',
               aspectRatio: '1 / 1',
               transform: 'translate(-50%, -50%)',
               pointerEvents: 'auto',
