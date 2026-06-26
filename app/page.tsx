@@ -12,7 +12,7 @@ import WheelPointer from '@/components/wheel/WheelPointer'
 import SpinButton from '@/components/wheel/SpinButton'
 import EditorPanel from '@/components/editor/EditorPanel'
 import WinnerModal from '@/components/modals/WinnerModal'
-import { broadcastIntroEvent } from '@/lib/liveRoom'
+import { broadcastIntroEvent, broadcastWheelState } from '@/lib/liveRoom'
 
 // Presentation-mode focal point — lounge circle center as fractions of the
 // wheel stage. X is (50% + 190px) because the circle sits 190px right of the
@@ -81,6 +81,8 @@ export default function Home() {
   function enterPresentation() {
     setEditMode(false)
     setPresentationMode(true)
+    const s = useWheelStore.getState()
+    broadcastWheelState({ config: s.config, wheelMode: s.wheelMode, autoRemoveWinner: s.autoRemoveWinner })
   }
 
   function exitPresentation() {
