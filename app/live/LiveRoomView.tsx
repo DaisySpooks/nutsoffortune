@@ -11,10 +11,6 @@ import { useMediaQuery } from '@/hooks/useMediaQuery'
 import WheelCanvas from '@/components/wheel/WheelCanvas'
 import WheelPointer from '@/components/wheel/WheelPointer'
 
-// Matches the host's presentation-mode constants exactly.
-const PM_LEFT = 'calc(50vw + 190px)'
-const PM_TOP = '38.5%'
-
 // Must match useSpin.ts — caps tick rate when there are many entries.
 const MIN_TICK_MS = 60
 
@@ -467,18 +463,33 @@ export default function LiveRoomView() {
         {bgOverlay}
         {title}
 
+        {/* Cover stage — mirrors object-fit:cover scaling of the 16:9 video so the
+            wheel position tracks the circular frame at any viewport aspect ratio. */}
         <div
           style={{
             position: 'absolute',
-            left: PM_LEFT,
-            top: PM_TOP,
-            width: 'min(90vw, 90vh, 560px)',
-            aspectRatio: '1 / 1',
+            width: 'max(100vw, calc(100vh * 16 / 9))',
+            height: 'max(100vh, calc(100vw * 9 / 16))',
+            top: '50%',
+            left: '50%',
             transform: 'translate(-50%, -50%)',
-            zIndex: 10,
+            pointerEvents: 'none',
           }}
         >
-          {wheelRing}
+          <div
+            style={{
+              position: 'absolute',
+              left: '59.896%',
+              top: '38.5%',
+              width: 'min(90vw, 90vh, 560px)',
+              aspectRatio: '1 / 1',
+              transform: 'translate(-50%, -50%)',
+              pointerEvents: 'auto',
+              zIndex: 10,
+            }}
+          >
+            {wheelRing}
+          </div>
         </div>
 
         {resultReveal}
