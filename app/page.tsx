@@ -38,7 +38,10 @@ export default function Home() {
   const isWideDesktop = useMediaQuery('(min-width: 1600px)')
   // Two-stage cramped-desktop fallback (only applies when isDesktop is true).
   const isDesktopCramped = useMediaQuery('(min-width: 1024px) and (max-height: 599px)')
-  const isDesktopTooSmall = useMediaQuery('(min-width: 1024px) and (max-height: 399px)')
+  // "Too small" fires when the desktop viewport is narrower than 1200px or shorter than 700px.
+  const isDesktopTooNarrow = useMediaQuery('(min-width: 1024px) and (max-width: 1199px)')
+  const isDesktopTooShort  = useMediaQuery('(min-width: 1024px) and (max-height: 699px)')
+  const isDesktopTooSmall  = isDesktopTooNarrow || isDesktopTooShort
   // When cramped, the aside stays at width 0; the editor surfaces as an overlay instead.
   const [crampedEditorOpen, setCrampedEditorOpen] = useState(false)
   const [editMode, setEditMode] = useState(false)
