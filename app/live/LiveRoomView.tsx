@@ -481,7 +481,7 @@ export default function LiveRoomView() {
               position: 'absolute',
               left: '59.896%',
               top: '38.5%',
-              width: 'min(90vw, 90vh, 560px)',
+              width: '29.167%',
               aspectRatio: '1 / 1',
               transform: 'translate(-50%, -50%)',
               pointerEvents: 'auto',
