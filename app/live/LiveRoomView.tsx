@@ -5,7 +5,7 @@ import { useSearchParams } from 'next/navigation'
 import { clsx } from 'clsx'
 import { supabase } from '@/lib/supabase'
 import { getTheme } from '@/lib/colorUtils'
-import { IntroEvent, PreviewScrollEvent, SpinEvent, WheelSnapshot } from '@/lib/liveRoom'
+import { IntroEvent, SpinEvent, WheelSnapshot } from '@/lib/liveRoom'
 import { detectWinner, easeOutCubic } from '@/lib/wheelMath'
 import { useMediaQuery } from '@/hooks/useMediaQuery'
 import WheelCanvas from '@/components/wheel/WheelCanvas'
@@ -44,7 +44,10 @@ export default function LiveRoomView() {
   const lastReplayedTimestampRef = useRef<number | null>(null)
   const mountTimeRef = useRef(Date.now())
 
-  const [previewScrollRatio, setPreviewScrollRatio] = useState<number | undefined>(undefined)
+  // Live viewer's own panel state — not synced from host
+  const [livePreviewOpen, setLivePreviewOpen] = useState(false)
+  const [livePreviewPage, setLivePreviewPage] = useState(0)
+  const [isViewerSpinning, setIsViewerSpinning] = useState(false)
 
   // Sound state — refs are used in RAF closures (always current value);
   // the soundEnabled boolean drives the button UI only.
@@ -100,6 +103,7 @@ export default function LiveRoomView() {
         (payload) => {
           const row = payload.new as { wheel_state: WheelSnapshot | null; current_event: Record<string, unknown> | null }
           if (row.wheel_state != null) {
+            console.log('[live-room] wheel_state update — showPrizePreview:', row.wheel_state.showPrizePreview, 'previewPageIndex:', row.wheel_state.previewPageIndex)
             setSnapshot(row.wheel_state)
             // Clear wheel-slice highlight whenever entries may have changed.
             // Do NOT clear viewerWinner — Supabase sends the full row on every
@@ -143,6 +147,7 @@ export default function LiveRoomView() {
     }
     setWinnerIndex(null)
     setViewerWinner(null)
+    setIsViewerSpinning(true)
 
     const { startAngle, targetAngle, duration } = event
     const elapsed = Math.max(0, Date.now() - event.timestamp)
@@ -161,6 +166,7 @@ export default function LiveRoomView() {
     lastTickTimeRef.current = performance.now()
 
     function finishNow() {
+      setIsViewerSpinning(false)
       setViewerAngle(targetAngle)
       const idx = snap.config.entries.findIndex(e => e.id === event.winnerId)
       setWinnerIndex(idx !== -1 ? idx : null)
@@ -233,18 +239,6 @@ export default function LiveRoomView() {
     }
   }, [currentEvent])
 
-
-  // Apply scroll position broadcast from the host.
-  // No mountTimeRef guard — scroll position is spatial, not time-sensitive,
-  // so late-joining viewers should still receive the host's current position.
-  useEffect(() => {
-    if (!currentEvent || currentEvent.type !== 'preview-scroll') return
-    const event = currentEvent as unknown as PreviewScrollEvent
-    const { ratio } = event
-    if (typeof ratio === 'number' && isFinite(ratio)) {
-      setPreviewScrollRatio(ratio)
-    }
-  }, [currentEvent])
 
   // Toggles viewer sound on/off. The first enable is the browser user-gesture
   // that unlocks autoplay; subsequent toggles reuse the already-created objects.
@@ -507,20 +501,39 @@ export default function LiveRoomView() {
           </div>
         </div>
 
-        {/* Prize/Entries preview panel — read-only mirror of host's panel */}
+        {/* Prize/Entries preview panel — viewer-controlled */}
         <PrizePreviewPanel
-          open={!!snapshot.showPrizePreview}
-          onClose={() => {}}
+          open={livePreviewOpen}
+          onClose={() => { setLivePreviewOpen(false); setLivePreviewPage(0) }}
           entries={config.entries}
           wheelMode={wheelMode}
-          isSpinning={false}
-          readOnly
-          scrollRatio={previewScrollRatio}
+          isSpinning={isViewerSpinning}
+          pageIndex={livePreviewPage}
+          onPageChange={setLivePreviewPage}
         />
 
         {resultReveal}
         {bottomResult}
-        {soundControl}
+
+        {/* Bottom-left controls: sound + prizes toggle */}
+        <div className="absolute bottom-5 left-5 z-30 flex items-center gap-2">
+          <button
+            onClick={toggleSound}
+            className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold uppercase tracking-wider border border-[var(--border-mid)] text-[var(--muted)] bg-black/40 hover:text-[var(--gold)] hover:border-[var(--border-accent)] transition-colors"
+            aria-pressed={soundEnabled}
+          >
+            {soundEnabled ? 'Disable Sound' : 'Enable Sound'}
+          </button>
+          <button
+            onClick={() => setLivePreviewOpen(v => !v)}
+            className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold uppercase tracking-wider border border-[var(--border-mid)] text-[var(--muted)] bg-black/40 hover:text-[var(--gold)] hover:border-[var(--border-accent)] transition-colors"
+          >
+            {livePreviewOpen
+              ? (isPrizeMode ? 'Hide Prizes' : 'Hide Entries')
+              : (isPrizeMode ? 'View Prizes' : 'View Entries')}
+          </button>
+        </div>
+
         {connectionIndicator}
       </main>
     )

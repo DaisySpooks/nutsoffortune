@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { WheelEntry, WheelMode } from '@/types/wheel'
 
 interface Props {
@@ -10,40 +10,46 @@ interface Props {
   wheelMode: WheelMode
   isSpinning: boolean
   readOnly?: boolean
-  onScroll?: (ratio: number) => void
-  scrollRatio?: number
+  pageIndex?: number
+  onPageChange?: (index: number) => void
 }
 
-export default function PrizePreviewPanel({ open, onClose, entries, wheelMode, isSpinning, readOnly = false, onScroll, scrollRatio }: Props) {
+export default function PrizePreviewPanel({
+  open, onClose, entries, wheelMode, isSpinning,
+  readOnly = false, pageIndex = 0, onPageChange,
+}: Props) {
   const prevSpinning = useRef(false)
   const scrollRef = useRef<HTMLDivElement>(null)
+  const [maxPage, setMaxPage] = useState(0)
 
   // Auto-close when a spin starts.
   useEffect(() => {
-    if (!prevSpinning.current && isSpinning && open) {
-      onClose()
-    }
+    if (!prevSpinning.current && isSpinning && open) onClose()
     prevSpinning.current = isSpinning
   }, [isSpinning, open, onClose])
 
-  // Viewer side: apply incoming scroll ratio from host.
+  // Recompute how many pages exist whenever entries or open state changes.
+  // Runs after paint so clientHeight/scrollHeight are current.
   useEffect(() => {
-    if (scrollRatio === undefined) return
     const el = scrollRef.current
     if (!el) return
-    const max = el.scrollHeight - el.clientHeight
-    if (max > 0) el.scrollTop = scrollRatio * max
-  }, [scrollRatio])
+    const h = el.clientHeight
+    setMaxPage(h > 0 ? Math.max(0, Math.ceil((el.scrollHeight - h) / h)) : 0)
+  }, [entries, open])
 
-  function handleScroll(e: React.UIEvent<HTMLDivElement>) {
-    if (!onScroll) return
-    const el = e.currentTarget
-    const max = el.scrollHeight - el.clientHeight
-    onScroll(max > 0 ? el.scrollTop / max : 0)
-  }
+  // Apply the current page as a smooth native scroll.
+  // Deps include `open` so viewers who join with pageIndex already > 0 scroll correctly.
+  useEffect(() => {
+    const el = scrollRef.current
+    if (!el) return
+    console.log('[prize-panel] scroll effect — pageIndex:', pageIndex, 'clientH:', el.clientHeight, 'scrollH:', el.scrollHeight)
+    el.scrollTop = pageIndex * el.clientHeight
+  }, [pageIndex, open])
 
   const isPrizeMode = wheelMode === 'spin-for-prize'
   const heading = isPrizeMode ? 'Prizes In This Wheel' : 'Entries In This Wheel'
+  const canGoPrev = pageIndex > 0
+  const canGoNext = pageIndex < maxPage
 
   return (
     <div
@@ -58,7 +64,7 @@ export default function PrizePreviewPanel({ open, onClose, entries, wheelMode, i
         zIndex: 20,
         pointerEvents: open ? undefined : 'none',
         opacity: open ? 1 : 0,
-        transition: 'opacity 0.25s ease, transform 0.25s ease',
+        transition: 'opacity 0.25s ease',
         transformOrigin: 'left center',
       }}
     >
@@ -87,8 +93,20 @@ export default function PrizePreviewPanel({ open, onClose, entries, wheelMode, i
           )}
         </div>
 
-        {/* Entry list */}
-        <div ref={scrollRef} onScroll={handleScroll} className="overflow-y-auto flex-1" style={{ minHeight: 0 }}>
+        {/* Entry list — always scrollable and pointer-event-enabled so scrollTo works */}
+        <div
+          ref={scrollRef}
+          className="flex-1"
+          style={{
+            minHeight: 0,
+            // Cap the scroll container so entries can overflow and be scrollable.
+            // Without this, flex-1 in a maxHeight-only container expands to full
+            // content height, making clientHeight === scrollHeight with no room to scroll.
+            maxHeight: 412,
+            overflowY: readOnly ? 'scroll' : 'auto',
+            scrollBehavior: 'smooth',
+          }}
+        >
           {entries.length === 0 ? (
             <p className="px-4 py-6 text-xs text-[var(--muted)] text-center">No entries yet.</p>
           ) : (
@@ -123,9 +141,29 @@ export default function PrizePreviewPanel({ open, onClose, entries, wheelMode, i
           )}
         </div>
 
-        {/* Footer — total count */}
-        <div className="px-4 py-2 border-t border-[var(--border-mid)] flex-shrink-0">
-          <p className="text-[10px] uppercase tracking-wider text-[var(--muted)] text-right">
+        {/* Footer — entry count + page controls (controls hidden for read-only viewers) */}
+        <div className="px-3 py-2 border-t border-[var(--border-mid)] flex-shrink-0 flex items-center gap-2">
+          {!readOnly && (
+            <>
+              <button
+                onClick={() => onPageChange?.(pageIndex - 1)}
+                disabled={!canGoPrev}
+                aria-label="Previous page"
+                className="w-6 h-6 flex items-center justify-center rounded text-[var(--muted)] hover:text-[var(--gold)] disabled:opacity-25 disabled:cursor-not-allowed transition-colors text-xs"
+              >
+                ‹
+              </button>
+              <button
+                onClick={() => onPageChange?.(pageIndex + 1)}
+                disabled={!canGoNext}
+                aria-label="Next page"
+                className="w-6 h-6 flex items-center justify-center rounded text-[var(--muted)] hover:text-[var(--gold)] disabled:opacity-25 disabled:cursor-not-allowed transition-colors text-xs"
+              >
+                ›
+              </button>
+            </>
+          )}
+          <p className="text-[10px] uppercase tracking-wider text-[var(--muted)] ml-auto">
             {entries.length} {entries.length === 1 ? 'entry' : 'entries'}
           </p>
         </div>
