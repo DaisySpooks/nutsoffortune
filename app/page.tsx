@@ -17,10 +17,17 @@ import { broadcastIntroEvent, broadcastWheelState } from '@/lib/liveRoom'
 // Cover-stage width — matches how object-fit:cover scales the 16:9 background.
 const STAGE_W = 'max(100vw, calc(100vh * 16 / 9))'
 
+// On ultrawide the stage would equal 100vw and the cover-scaled background circle
+// inflates to fill the full width. Instead, pin everything to a 16:9 safe stage
+// that is exactly as wide as the background at viewport height.
+const SAFE_STAGE_W = 'calc(100vh * 16 / 9)'
+
 // Circle center X: 59.896% of stage from its left edge.
 // In viewport coords: (vw − stage)/2 + 59.896% × stage = 50vw + 9.896% × stage.
 // At 1920×1080: 960 + 0.09896 × 1920 = 960 + 190 = 1150px (same as old hardcoded value).
-const PM_LEFT = `calc(50vw + 0.12 * (${STAGE_W}))`
+const PM_LEFT    = `calc(50vw + 0.12 * (${STAGE_W}))`
+// Ultrawide variant: same formula but clamped to the safe 16:9 stage.
+const PM_LEFT_UW = `calc(50vw + 0.12 * (${SAFE_STAGE_W}))`
 
 // Y stays at 38.5% of section height (= 38.5vh in desktop). Exact at 16:9;
 // minor drift at extreme ARs but not worth the complexity to fix.
@@ -45,9 +52,14 @@ export default function Home() {
   // Desktop direct-wheel editing — desktop only, never while spinning.
   const isDesktop = useMediaQuery('(min-width: 1024px)')
   const isWideDesktop = useMediaQuery('(min-width: 1600px)')
+  // Ultrawide: viewport is wider than 16:9 at its current height.
+  // On these screens the cover-scaled background inflates to fill the full width,
+  // breaking the wheel/circle alignment. We constrain presentation to a safe stage.
+  const isUltrawide = useMediaQuery('(min-aspect-ratio: 16/9) and (min-width: 1024px)')
   // Two-stage cramped-desktop fallback (only applies when isDesktop is true).
-  // Cramped: 600–699px tall — editor collapses to overlay, wheel stage stays usable.
-  const isDesktopCramped = useMediaQuery('(min-width: 1024px) and (max-height: 699px)')
+  // Cramped: narrow (1024–1199px wide) AND short (600–699px tall).
+  // Wide screens (≥1200px) never enter drawer mode regardless of height.
+  const isDesktopCramped = useMediaQuery('(min-width: 1024px) and (max-width: 1199px) and (max-height: 699px)')
   // Too small: width < 1050px OR height < 600px — show blocking warning.
   const isDesktopTooNarrow = useMediaQuery('(min-width: 1024px) and (max-width: 1049px)')
   const isDesktopTooShort  = useMediaQuery('(min-width: 1024px) and (max-height: 599px)')
@@ -56,12 +68,25 @@ export default function Home() {
   const [crampedEditorOpen, setCrampedEditorOpen] = useState(false)
   const [editMode, setEditMode] = useState(false)
   const [presentationMode, setPresentationMode] = useState(false)
+  // Pick the ultrawide-safe PM_LEFT when in presentation on a wider-than-16:9 viewport.
+  const pmLeftActive = (isUltrawide && presentationMode) ? PM_LEFT_UW : PM_LEFT
   const [videoLoaded, setVideoLoaded] = useState(false)
   const canEdit = editMode && isDesktop && !isSpinning
 
   const introAudioRef = useRef<HTMLAudioElement | null>(null)
   const [isIntroPlaying, setIsIntroPlaying] = useState(false)
   const introVolume = config.sounds.introMusicVolume ?? 0.8
+
+  // Lock the document from scrolling while in presentation mode.
+  // This prevents body-level scrollbars caused by 100vh/min-h quirks on ultrawide.
+  useEffect(() => {
+    if (!isDesktop || !presentationMode) {
+      document.documentElement.style.overflow = ''
+      return
+    }
+    document.documentElement.style.overflow = 'hidden'
+    return () => { document.documentElement.style.overflow = '' }
+  }, [presentationMode, isDesktop])
 
   // Close the cramped overlay whenever the viewport recovers to normal desktop size.
   useEffect(() => {
@@ -127,7 +152,10 @@ export default function Home() {
   const editorHidden = presentationMode || isDesktopCramped
 
   return (
-    <main className="flex flex-col lg:flex-row lg:h-screen lg:overflow-hidden">
+    <main
+      className="flex flex-col lg:flex-row lg:h-screen lg:overflow-hidden"
+      style={presentationMode ? { height: '100dvh', overflow: 'hidden' } : undefined}
+    >
       {/* ── Too-small desktop warning overlay ── */}
       {isDesktopTooSmall && (
         <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-black/90 text-center px-6">
@@ -147,6 +175,11 @@ export default function Home() {
           backgroundImage: 'url(/backgrounds/wheel-room.png)',
           backgroundSize: 'cover',
           backgroundPosition: editorHidden ? 'center' : 'calc((100vw - 420px) / 2 - 113.3vh) 80px',
+          // Lock the section to the dynamic viewport height in presentation mode.
+          // This beats the min-h-[55vw] Tailwind class (which on ultrawide can
+          // exceed 100vh and create document-level scrollbars) and corrects any
+          // 100vh vs 100dvh discrepancy from h-screen on the parent main.
+          ...(presentationMode ? { height: '100dvh', minHeight: 0, overflow: 'hidden' } : {}),
         }}
       >
         {/* Animated video background — sits behind all content via DOM order */}
@@ -199,7 +232,7 @@ export default function Home() {
           <div
             style={{
               position: 'absolute',
-              left: presentationMode ? PM_LEFT : 'calc(50vw - 210px)',
+              left: presentationMode ? pmLeftActive : 'calc(50vw - 210px)',
               top: presentationMode ? PM_TOP : 'calc(50% - 31px)',
               width: presentationMode ? PM_WHEEL_SIZE : 'min(90vw, 90vh, 560px)',
               aspectRatio: '1 / 1',
@@ -258,7 +291,7 @@ export default function Home() {
             <div
               className="absolute"
               style={{
-                left: PM_LEFT,
+                left: pmLeftActive,
                 top: `calc(${PM_TOP} + ${PM_HALF_WHEEL} + 20px)`,
                 transform: 'translateX(-50%)',
               }}
