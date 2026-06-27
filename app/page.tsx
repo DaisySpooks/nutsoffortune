@@ -323,16 +323,6 @@ export default function Home() {
 
             {/* Bottom-left controls row */}
             <div className="hidden lg:flex absolute bottom-5 left-5 items-center gap-2">
-              {/* View Prizes / View Entries toggle */}
-              <button
-                onClick={() => setPrizesPanelOpen(v => !v)}
-                className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold uppercase tracking-wider border border-[var(--border-mid)] text-[var(--muted)] bg-black/40 hover:text-[var(--gold)] hover:border-[var(--border-accent)] transition-colors"
-              >
-                {prizesPanelOpen
-                  ? (wheelMode === 'spin-for-prize' ? 'Hide Prizes' : 'Hide Entries')
-                  : (wheelMode === 'spin-for-prize' ? 'View Prizes' : 'View Entries')}
-              </button>
-
               {/* Play/Stop Intro */}
               <button
                 onClick={toggleIntro}
