@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useRef } from 'react'
+import confetti from 'canvas-confetti'
 import { useWheelStore } from '@/store/wheelStore'
 import {
   easeOutCubic,
@@ -68,16 +69,26 @@ export function useSpin() {
 
     if (!winner) return
 
-    if (store.config.sounds.enabled) {
-      const clap = clapAudioRef.current
-      if (clap) {
-        clap.currentTime = 0
-        clap.play().catch(() => { })
+    // Staged reveal: tiny delay so the card pops in after the wheel settles.
+    setTimeout(() => {
+      if (store.config.sounds.enabled) {
+        const clap = clapAudioRef.current
+        if (clap) {
+          clap.currentTime = 0
+          clap.play().catch(() => { })
+        }
       }
-    }
-
-    // Announce the result.
-    store.setShowWinnerModal(true)
+      store.setShowWinnerModal(true)
+      confetti({
+        particleCount: 70,
+        spread: 65,
+        startVelocity: 68,
+        gravity: 1.8,
+        ticks: 90,
+        origin: { y: 0.55 },
+        colors: ['#f0cd86', '#f0892c', '#ffa648', '#ffffff'],
+      })
+    }, 350)
 
     store.addToHistory({
       id: uuid(),

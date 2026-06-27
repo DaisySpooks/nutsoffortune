@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
+import confetti from 'canvas-confetti'
 import { useSearchParams } from 'next/navigation'
 import { clsx } from 'clsx'
 import { supabase } from '@/lib/supabase'
@@ -40,6 +41,8 @@ export default function LiveRoomView() {
   const [viewerAngle, setViewerAngle] = useState(0)
   const [winnerIndex, setWinnerIndex] = useState<number | null>(null)
   const [viewerWinner, setViewerWinner] = useState<ViewerWinner | null>(null)
+  const [revealAnimated, setRevealAnimated] = useState(false)
+  const [revealKey, setRevealKey] = useState(0)
   const rafRef = useRef<number | null>(null)
   const lastReplayedTimestampRef = useRef<number | null>(null)
   const mountTimeRef = useRef(Date.now())
@@ -147,10 +150,12 @@ export default function LiveRoomView() {
     }
     setWinnerIndex(null)
     setViewerWinner(null)
+    setRevealAnimated(false)
     setIsViewerSpinning(true)
 
     const { startAngle, targetAngle, duration } = event
     const elapsed = Math.max(0, Date.now() - event.timestamp)
+    const isCatchUp = elapsed >= duration
     const snap = snapshot  // captured non-null for use in closures
 
     // Seed tick refs at the compensated start position so that:
@@ -171,11 +176,31 @@ export default function LiveRoomView() {
       const idx = snap.config.entries.findIndex(e => e.id === event.winnerId)
       setWinnerIndex(idx !== -1 ? idx : null)
       const entry = idx !== -1 ? snap.config.entries[idx] : null
-      setViewerWinner({ name: event.winnerName, imageUrl: entry?.imageUrl ?? null })
-      if (soundEnabledRef.current && clapAudioRef.current) {
-        clapAudioRef.current.currentTime = 0
-        clapAudioRef.current.play().catch(() => { })
+      const winner = { name: event.winnerName, imageUrl: entry?.imageUrl ?? null }
+
+      if (isCatchUp) {
+        setViewerWinner(winner)
+        return
       }
+
+      setTimeout(() => {
+        setRevealKey(k => k + 1)
+        setRevealAnimated(true)
+        setViewerWinner(winner)
+        if (soundEnabledRef.current && clapAudioRef.current) {
+          clapAudioRef.current.currentTime = 0
+          clapAudioRef.current.play().catch(() => { })
+        }
+        confetti({
+          particleCount: 70,
+          spread: 65,
+          startVelocity: 68,
+          gravity: 1.8,
+          ticks: 90,
+          origin: { y: 0.55 },
+          colors: ['#f0cd86', '#f0892c', '#ffa648', '#ffffff'],
+        })
+      }, 350)
     }
 
     if (elapsed >= duration) {
@@ -383,7 +408,13 @@ export default function LiveRoomView() {
       className="absolute inset-0 z-20 flex items-center justify-center pointer-events-none"
       style={{ background: 'radial-gradient(ellipse at center, rgba(0,0,0,0.55) 0%, rgba(0,0,0,0) 65%)' }}
     >
-      <div className="flex flex-col items-center gap-3 text-center">
+      <div
+        key={revealKey}
+        className={clsx(
+          'flex flex-col items-center gap-3 text-center',
+          revealAnimated && 'result-reveal-anim result-glow-anim',
+        )}
+      >
         {viewerWinner.imageUrl && (
           <img
             src={viewerWinner.imageUrl}
