@@ -13,7 +13,7 @@ import SpinButton from '@/components/wheel/SpinButton'
 import EditorPanel from '@/components/editor/EditorPanel'
 import WinnerModal from '@/components/modals/WinnerModal'
 import PrizePreviewPanel from '@/components/presentation/PrizePreviewPanel'
-import { broadcastIntroEvent, broadcastWheelState, broadcastPreviewScrollEvent } from '@/lib/liveRoom'
+import { broadcastIntroEvent, broadcastWheelState } from '@/lib/liveRoom'
 
 // Cover-stage width — matches how object-fit:cover scales the 16:9 background.
 const STAGE_W = 'max(100vw, calc(100vh * 16 / 9))'
@@ -70,6 +70,7 @@ export default function Home() {
   const [editMode, setEditMode] = useState(false)
   const [presentationMode, setPresentationMode] = useState(false)
   const [prizesPanelOpen, setPrizesPanelOpen] = useState(false)
+  const [prizePageIndex, setPrizePageIndex] = useState(0)
   // Pick the ultrawide-safe PM_LEFT when in presentation on a wider-than-16:9 viewport.
   const pmLeftActive = (isUltrawide && presentationMode) ? PM_LEFT_UW : PM_LEFT
   const [videoLoaded, setVideoLoaded] = useState(false)
@@ -77,14 +78,6 @@ export default function Home() {
 
   const introAudioRef = useRef<HTMLAudioElement | null>(null)
   const [isIntroPlaying, setIsIntroPlaying] = useState(false)
-  const lastScrollBroadcastRef = useRef<number>(0)
-
-  function handlePanelScroll(ratio: number) {
-    const now = Date.now()
-    if (now - lastScrollBroadcastRef.current < 100) return
-    lastScrollBroadcastRef.current = now
-    void broadcastPreviewScrollEvent(ratio)
-  }
   const introVolume = config.sounds.introMusicVolume ?? 0.8
 
   // Lock the document from scrolling while in presentation mode.
@@ -136,23 +129,26 @@ export default function Home() {
     }
   }
 
-  // Sync panel visibility to live viewers whenever it changes while presenting.
+  // Sync panel visibility and page index to live viewers whenever either changes.
   useEffect(() => {
     if (!presentationMode) return
+    console.log('[prize-panel] broadcasting — open:', prizesPanelOpen, 'pageIndex:', prizePageIndex)
     const s = useWheelStore.getState()
     broadcastWheelState({
       config: s.config,
       wheelMode: s.wheelMode,
       autoRemoveWinner: s.autoRemoveWinner,
       showPrizePreview: prizesPanelOpen,
+      previewPageIndex: prizePageIndex,
     })
-  }, [prizesPanelOpen, presentationMode])
+  }, [prizesPanelOpen, prizePageIndex, presentationMode])
 
   function enterPresentation() {
     setEditMode(false)
     setPresentationMode(true)
+    setPrizePageIndex(0)
     const s = useWheelStore.getState()
-    broadcastWheelState({ config: s.config, wheelMode: s.wheelMode, autoRemoveWinner: s.autoRemoveWinner, showPrizePreview: false })
+    broadcastWheelState({ config: s.config, wheelMode: s.wheelMode, autoRemoveWinner: s.autoRemoveWinner, showPrizePreview: false, previewPageIndex: 0 })
   }
 
   function exitPresentation() {
@@ -163,6 +159,7 @@ export default function Home() {
     }
     setPresentationMode(false)
     setPrizesPanelOpen(false)
+    setPrizePageIndex(0)
   }
 
   const entries = config.entries
@@ -313,11 +310,12 @@ export default function Home() {
             {/* Prize preview panel — left side, desktop only */}
             <PrizePreviewPanel
               open={prizesPanelOpen}
-              onClose={() => setPrizesPanelOpen(false)}
+              onClose={() => { setPrizesPanelOpen(false); setPrizePageIndex(0) }}
               entries={entries}
               wheelMode={wheelMode}
               isSpinning={isSpinning}
-              onScroll={handlePanelScroll}
+              pageIndex={prizePageIndex}
+              onPageChange={setPrizePageIndex}
             />
 
             {/* Spin button anchored just below the wheel */}
