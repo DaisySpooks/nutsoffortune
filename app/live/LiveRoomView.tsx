@@ -10,6 +10,7 @@ import { detectWinner, easeOutCubic } from '@/lib/wheelMath'
 import { useMediaQuery } from '@/hooks/useMediaQuery'
 import WheelCanvas from '@/components/wheel/WheelCanvas'
 import WheelPointer from '@/components/wheel/WheelPointer'
+import PrizePreviewPanel from '@/components/presentation/PrizePreviewPanel'
 
 // Must match useSpin.ts — caps tick rate when there are many entries.
 const MIN_TICK_MS = 60
@@ -491,6 +492,16 @@ export default function LiveRoomView() {
             {wheelRing}
           </div>
         </div>
+
+        {/* Prize/Entries preview panel — read-only mirror of host's panel */}
+        <PrizePreviewPanel
+          open={!!snapshot.showPrizePreview}
+          onClose={() => {}}
+          entries={config.entries}
+          wheelMode={wheelMode}
+          isSpinning={false}
+          readOnly
+        />
 
         {resultReveal}
         {bottomResult}

@@ -17,6 +17,7 @@ export interface WheelSnapshot {
   config: WheelConfig
   wheelMode: WheelMode
   autoRemoveWinner: boolean
+  showPrizePreview?: boolean
 }
 
 export interface SpinEvent {

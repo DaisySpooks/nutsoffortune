@@ -9,9 +9,10 @@ interface Props {
   entries: WheelEntry[]
   wheelMode: WheelMode
   isSpinning: boolean
+  readOnly?: boolean
 }
 
-export default function PrizePreviewPanel({ open, onClose, entries, wheelMode, isSpinning }: Props) {
+export default function PrizePreviewPanel({ open, onClose, entries, wheelMode, isSpinning, readOnly = false }: Props) {
   const prevSpinning = useRef(false)
 
   // Auto-close when a spin starts.
@@ -56,13 +57,15 @@ export default function PrizePreviewPanel({ open, onClose, entries, wheelMode, i
           <h2 className="text-xs font-bold uppercase tracking-[0.12em] text-[var(--gold)]">
             {heading}
           </h2>
-          <button
-            onClick={onClose}
-            aria-label="Close panel"
-            className="text-[var(--muted)] hover:text-[var(--gold)] transition-colors text-lg leading-none -mr-0.5"
-          >
-            ×
-          </button>
+          {!readOnly && (
+            <button
+              onClick={onClose}
+              aria-label="Close panel"
+              className="text-[var(--muted)] hover:text-[var(--gold)] transition-colors text-lg leading-none -mr-0.5"
+            >
+              ×
+            </button>
+          )}
         </div>
 
         {/* Entry list */}

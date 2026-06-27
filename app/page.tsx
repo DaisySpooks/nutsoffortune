@@ -128,11 +128,23 @@ export default function Home() {
     }
   }
 
+  // Sync panel visibility to live viewers whenever it changes while presenting.
+  useEffect(() => {
+    if (!presentationMode) return
+    const s = useWheelStore.getState()
+    broadcastWheelState({
+      config: s.config,
+      wheelMode: s.wheelMode,
+      autoRemoveWinner: s.autoRemoveWinner,
+      showPrizePreview: prizesPanelOpen,
+    })
+  }, [prizesPanelOpen, presentationMode])
+
   function enterPresentation() {
     setEditMode(false)
     setPresentationMode(true)
     const s = useWheelStore.getState()
-    broadcastWheelState({ config: s.config, wheelMode: s.wheelMode, autoRemoveWinner: s.autoRemoveWinner })
+    broadcastWheelState({ config: s.config, wheelMode: s.wheelMode, autoRemoveWinner: s.autoRemoveWinner, showPrizePreview: false })
   }
 
   function exitPresentation() {
