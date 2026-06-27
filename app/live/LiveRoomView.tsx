@@ -55,6 +55,7 @@ export default function LiveRoomView() {
   const soundEnabledRef = useRef(false)
   const tickAudioRef = useRef<HTMLAudioElement | null>(null)
   const introAudioRef = useRef<HTMLAudioElement | null>(null)
+  const clapAudioRef = useRef<HTMLAudioElement | null>(null)
   const lastSliceIdRef = useRef<string | null>(null)
   const lastTickTimeRef = useRef<number>(0)
 
@@ -171,6 +172,10 @@ export default function LiveRoomView() {
       setWinnerIndex(idx !== -1 ? idx : null)
       const entry = idx !== -1 ? snap.config.entries[idx] : null
       setViewerWinner({ name: event.winnerName, imageUrl: entry?.imageUrl ?? null })
+      if (soundEnabledRef.current && clapAudioRef.current) {
+        clapAudioRef.current.currentTime = 0
+        clapAudioRef.current.play().catch(() => { })
+      }
     }
 
     if (elapsed >= duration) {
@@ -258,6 +263,12 @@ export default function LiveRoomView() {
         a.volume = snapshot?.config.sounds.introMusicVolume ?? 0.8
         a.loop = false
         introAudioRef.current = a
+      }
+      if (!clapAudioRef.current) {
+        const a = new Audio('/sounds/golf-clap.mp3')
+        a.volume = 0.3
+        a.preload = 'auto'
+        clapAudioRef.current = a
       }
       soundEnabledRef.current = true
       setSoundEnabled(true)

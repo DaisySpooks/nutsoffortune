@@ -19,6 +19,14 @@ function createTickAudio() {
   return audio
 }
 
+function createClapAudio() {
+  if (typeof window === 'undefined') return null
+  const audio = new Audio('/sounds/golf-clap.mp3')
+  audio.volume = 0.3
+  audio.preload = 'auto'
+  return audio
+}
+
 /**
  * Phase 3 — drives the wheel spin animation.
  *
@@ -34,11 +42,13 @@ const MIN_TICK_MS = 60
 export function useSpin() {
   const rafRef = useRef<number | null>(null)
   const audioRef = useRef<HTMLAudioElement | null>(null)
+  const clapAudioRef = useRef<HTMLAudioElement | null>(null)
   const lastSliceIdRef = useRef<string | null>(null)
   const lastTickTimeRef = useRef<number>(0)
 
   useEffect(() => {
     audioRef.current = createTickAudio()
+    clapAudioRef.current = createClapAudio()
     return () => {
       if (rafRef.current !== null) cancelAnimationFrame(rafRef.current)
     }
@@ -57,6 +67,14 @@ export function useSpin() {
     store.setWinner(winner)
 
     if (!winner) return
+
+    if (store.config.sounds.enabled) {
+      const clap = clapAudioRef.current
+      if (clap) {
+        clap.currentTime = 0
+        clap.play().catch(() => { })
+      }
+    }
 
     // Announce the result.
     store.setShowWinnerModal(true)
