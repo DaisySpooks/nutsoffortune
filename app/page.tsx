@@ -26,7 +26,7 @@ const SAFE_STAGE_W = 'calc(100vh * 16 / 9)'
 // Circle center X: 59.896% of stage from its left edge.
 // In viewport coords: (vw − stage)/2 + 59.896% × stage = 50vw + 9.896% × stage.
 // At 1920×1080: 960 + 0.09896 × 1920 = 960 + 190 = 1150px (same as old hardcoded value).
-const PM_LEFT    = `calc(50vw + 0.12 * (${STAGE_W}))`
+const PM_LEFT = `calc(50vw + 0.12 * (${STAGE_W}))`
 // Ultrawide variant: same formula but clamped to the safe 16:9 stage.
 const PM_LEFT_UW = `calc(50vw + 0.12 * (${SAFE_STAGE_W}))`
 
@@ -63,8 +63,8 @@ export default function Home() {
   const isDesktopCramped = useMediaQuery('(min-width: 1024px) and (max-width: 1199px) and (max-height: 699px)')
   // Too small: width < 1050px OR height < 600px — show blocking warning.
   const isDesktopTooNarrow = useMediaQuery('(min-width: 1024px) and (max-width: 1049px)')
-  const isDesktopTooShort  = useMediaQuery('(min-width: 1024px) and (max-height: 599px)')
-  const isDesktopTooSmall  = isDesktopTooNarrow || isDesktopTooShort
+  const isDesktopTooShort = useMediaQuery('(min-width: 1024px) and (max-height: 599px)')
+  const isDesktopTooSmall = isDesktopTooNarrow || isDesktopTooShort
   // When cramped, the aside stays at width 0; the editor surfaces as an overlay instead.
   const [crampedEditorOpen, setCrampedEditorOpen] = useState(false)
   const [editMode, setEditMode] = useState(false)
@@ -129,19 +129,6 @@ export default function Home() {
     }
   }
 
-  // Sync panel visibility and page index to live viewers whenever either changes.
-  useEffect(() => {
-    if (!presentationMode) return
-    console.log('[prize-panel] broadcasting — open:', prizesPanelOpen, 'pageIndex:', prizePageIndex)
-    const s = useWheelStore.getState()
-    broadcastWheelState({
-      config: s.config,
-      wheelMode: s.wheelMode,
-      autoRemoveWinner: s.autoRemoveWinner,
-      showPrizePreview: prizesPanelOpen,
-      previewPageIndex: prizePageIndex,
-    })
-  }, [prizesPanelOpen, prizePageIndex, presentationMode])
 
   function enterPresentation() {
     setEditMode(false)
