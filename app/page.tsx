@@ -135,7 +135,7 @@ export default function Home() {
     setPresentationMode(true)
     setPrizePageIndex(0)
     const s = useWheelStore.getState()
-    broadcastWheelState({ config: s.config, wheelMode: s.wheelMode, autoRemoveWinner: s.autoRemoveWinner, showPrizePreview: false, previewPageIndex: 0 })
+    broadcastWheelState({ config: s.config, wheelMode: s.wheelMode, autoRemoveWinner: s.autoRemoveWinner, showPrizePreview: false })
   }
 
   function exitPresentation() {
