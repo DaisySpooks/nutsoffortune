@@ -10,10 +10,13 @@ interface Props {
   wheelMode: WheelMode
   isSpinning: boolean
   readOnly?: boolean
+  onScroll?: (ratio: number) => void
+  scrollRatio?: number
 }
 
-export default function PrizePreviewPanel({ open, onClose, entries, wheelMode, isSpinning, readOnly = false }: Props) {
+export default function PrizePreviewPanel({ open, onClose, entries, wheelMode, isSpinning, readOnly = false, onScroll, scrollRatio }: Props) {
   const prevSpinning = useRef(false)
+  const scrollRef = useRef<HTMLDivElement>(null)
 
   // Auto-close when a spin starts.
   useEffect(() => {
@@ -22,6 +25,22 @@ export default function PrizePreviewPanel({ open, onClose, entries, wheelMode, i
     }
     prevSpinning.current = isSpinning
   }, [isSpinning, open, onClose])
+
+  // Viewer side: apply incoming scroll ratio from host.
+  useEffect(() => {
+    if (scrollRatio === undefined) return
+    const el = scrollRef.current
+    if (!el) return
+    const max = el.scrollHeight - el.clientHeight
+    if (max > 0) el.scrollTop = scrollRatio * max
+  }, [scrollRatio])
+
+  function handleScroll(e: React.UIEvent<HTMLDivElement>) {
+    if (!onScroll) return
+    const el = e.currentTarget
+    const max = el.scrollHeight - el.clientHeight
+    onScroll(max > 0 ? el.scrollTop / max : 0)
+  }
 
   const isPrizeMode = wheelMode === 'spin-for-prize'
   const heading = isPrizeMode ? 'Prizes In This Wheel' : 'Entries In This Wheel'
@@ -69,7 +88,7 @@ export default function PrizePreviewPanel({ open, onClose, entries, wheelMode, i
         </div>
 
         {/* Entry list */}
-        <div className="overflow-y-auto flex-1" style={{ minHeight: 0 }}>
+        <div ref={scrollRef} onScroll={handleScroll} className="overflow-y-auto flex-1" style={{ minHeight: 0 }}>
           {entries.length === 0 ? (
             <p className="px-4 py-6 text-xs text-[var(--muted)] text-center">No entries yet.</p>
           ) : (

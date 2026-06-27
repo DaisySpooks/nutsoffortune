@@ -37,6 +37,12 @@ export interface IntroEvent {
   startedAt?: number
 }
 
+export interface PreviewScrollEvent {
+  type: 'preview-scroll'
+  ratio: number
+  timestamp: number
+}
+
 const HOST_TOKEN_KEY = (roomCode: string) => `live_host_token_${roomCode}`
 const ACTIVE_ROOM_KEY = 'live_active_room_code'
 
@@ -143,6 +149,23 @@ export async function broadcastIntroEvent(playing: boolean): Promise<void> {
   })
 
   if (error) console.error('[liveRoom] broadcastIntroEvent: RPC error', error)
+}
+
+// Notify viewers of the host's panel scroll position (normalized 0–1 ratio).
+// Uses the same current_event channel as intro events.
+export async function broadcastPreviewScrollEvent(ratio: number): Promise<void> {
+  const roomCode = getActiveRoomCode()
+  if (!roomCode) return
+  const hostToken = getStoredHostToken(roomCode)
+  if (!hostToken) return
+
+  const event: PreviewScrollEvent = { type: 'preview-scroll', ratio, timestamp: Date.now() }
+  const { error } = await supabase.rpc('broadcast_spin_event', {
+    p_room_code: roomCode,
+    p_host_token: hostToken,
+    p_event: event,
+  })
+  if (error) console.error('[liveRoom] broadcastPreviewScrollEvent: RPC error', error)
 }
 
 // Fire-and-forget: write a spin event to current_event so viewers can replay it.

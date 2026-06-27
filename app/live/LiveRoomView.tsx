@@ -5,7 +5,7 @@ import { useSearchParams } from 'next/navigation'
 import { clsx } from 'clsx'
 import { supabase } from '@/lib/supabase'
 import { getTheme } from '@/lib/colorUtils'
-import { IntroEvent, SpinEvent, WheelSnapshot } from '@/lib/liveRoom'
+import { IntroEvent, PreviewScrollEvent, SpinEvent, WheelSnapshot } from '@/lib/liveRoom'
 import { detectWinner, easeOutCubic } from '@/lib/wheelMath'
 import { useMediaQuery } from '@/hooks/useMediaQuery'
 import WheelCanvas from '@/components/wheel/WheelCanvas'
@@ -43,6 +43,8 @@ export default function LiveRoomView() {
   const rafRef = useRef<number | null>(null)
   const lastReplayedTimestampRef = useRef<number | null>(null)
   const mountTimeRef = useRef(Date.now())
+
+  const [previewScrollRatio, setPreviewScrollRatio] = useState<number | undefined>(undefined)
 
   // Sound state — refs are used in RAF closures (always current value);
   // the soundEnabled boolean drives the button UI only.
@@ -231,6 +233,18 @@ export default function LiveRoomView() {
     }
   }, [currentEvent])
 
+
+  // Apply scroll position broadcast from the host.
+  // No mountTimeRef guard — scroll position is spatial, not time-sensitive,
+  // so late-joining viewers should still receive the host's current position.
+  useEffect(() => {
+    if (!currentEvent || currentEvent.type !== 'preview-scroll') return
+    const event = currentEvent as unknown as PreviewScrollEvent
+    const { ratio } = event
+    if (typeof ratio === 'number' && isFinite(ratio)) {
+      setPreviewScrollRatio(ratio)
+    }
+  }, [currentEvent])
 
   // Toggles viewer sound on/off. The first enable is the browser user-gesture
   // that unlocks autoplay; subsequent toggles reuse the already-created objects.
@@ -501,6 +515,7 @@ export default function LiveRoomView() {
           wheelMode={wheelMode}
           isSpinning={false}
           readOnly
+          scrollRatio={previewScrollRatio}
         />
 
         {resultReveal}
