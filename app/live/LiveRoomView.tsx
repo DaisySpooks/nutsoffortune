@@ -103,7 +103,6 @@ export default function LiveRoomView() {
         (payload) => {
           const row = payload.new as { wheel_state: WheelSnapshot | null; current_event: Record<string, unknown> | null }
           if (row.wheel_state != null) {
-            console.log('[live-room] wheel_state update — showPrizePreview:', row.wheel_state.showPrizePreview, 'previewPageIndex:', row.wheel_state.previewPageIndex)
             setSnapshot(row.wheel_state)
             // Clear wheel-slice highlight whenever entries may have changed.
             // Do NOT clear viewerWinner — Supabase sends the full row on every
