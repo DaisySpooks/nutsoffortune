@@ -12,6 +12,7 @@ import WheelPointer from '@/components/wheel/WheelPointer'
 import SpinButton from '@/components/wheel/SpinButton'
 import EditorPanel from '@/components/editor/EditorPanel'
 import WinnerModal from '@/components/modals/WinnerModal'
+import PrizePreviewPanel from '@/components/presentation/PrizePreviewPanel'
 import { broadcastIntroEvent, broadcastWheelState } from '@/lib/liveRoom'
 
 // Cover-stage width — matches how object-fit:cover scales the 16:9 background.
@@ -68,6 +69,7 @@ export default function Home() {
   const [crampedEditorOpen, setCrampedEditorOpen] = useState(false)
   const [editMode, setEditMode] = useState(false)
   const [presentationMode, setPresentationMode] = useState(false)
+  const [prizesPanelOpen, setPrizesPanelOpen] = useState(false)
   // Pick the ultrawide-safe PM_LEFT when in presentation on a wider-than-16:9 viewport.
   const pmLeftActive = (isUltrawide && presentationMode) ? PM_LEFT_UW : PM_LEFT
   const [videoLoaded, setVideoLoaded] = useState(false)
@@ -140,6 +142,7 @@ export default function Home() {
       setIsIntroPlaying(false)
     }
     setPresentationMode(false)
+    setPrizesPanelOpen(false)
   }
 
   const entries = config.entries
@@ -287,6 +290,15 @@ export default function Home() {
 
         {presentationMode ? (
           <>
+            {/* Prize preview panel — left side, desktop only */}
+            <PrizePreviewPanel
+              open={prizesPanelOpen}
+              onClose={() => setPrizesPanelOpen(false)}
+              entries={entries}
+              wheelMode={wheelMode}
+              isSpinning={isSpinning}
+            />
+
             {/* Spin button anchored just below the wheel */}
             <div
               className="absolute"
@@ -303,13 +315,26 @@ export default function Home() {
               />
             </div>
 
-            {/* Play/Stop Intro — bottom-left corner */}
-            <button
-              onClick={toggleIntro}
-              className="hidden lg:inline-flex absolute bottom-5 left-5 items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold uppercase tracking-wider border border-[var(--border-mid)] text-[var(--muted)] bg-black/40 hover:text-[var(--gold)] hover:border-[var(--border-accent)] transition-colors"
-            >
-              {isIntroPlaying ? 'Stop Intro' : 'Play Intro'}
-            </button>
+            {/* Bottom-left controls row */}
+            <div className="hidden lg:flex absolute bottom-5 left-5 items-center gap-2">
+              {/* View Prizes / View Entries toggle */}
+              <button
+                onClick={() => setPrizesPanelOpen(v => !v)}
+                className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold uppercase tracking-wider border border-[var(--border-mid)] text-[var(--muted)] bg-black/40 hover:text-[var(--gold)] hover:border-[var(--border-accent)] transition-colors"
+              >
+                {prizesPanelOpen
+                  ? (wheelMode === 'spin-for-prize' ? 'Hide Prizes' : 'Hide Entries')
+                  : (wheelMode === 'spin-for-prize' ? 'View Prizes' : 'View Entries')}
+              </button>
+
+              {/* Play/Stop Intro */}
+              <button
+                onClick={toggleIntro}
+                className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold uppercase tracking-wider border border-[var(--border-mid)] text-[var(--muted)] bg-black/40 hover:text-[var(--gold)] hover:border-[var(--border-accent)] transition-colors"
+              >
+                {isIntroPlaying ? 'Stop Intro' : 'Play Intro'}
+              </button>
+            </div>
 
             {/* Show editor — bottom-right corner */}
             <button
