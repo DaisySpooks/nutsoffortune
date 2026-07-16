@@ -66,7 +66,7 @@ export default function WinnerModal({ onSpinAgain }: Props) {
             className="flex-1"
             onClick={close}
           >
-            Okay
+            Review Wheel
           </Button>
           {stillOnWheel && (
             <Button
