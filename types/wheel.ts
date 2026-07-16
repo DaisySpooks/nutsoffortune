@@ -37,6 +37,8 @@ export interface WinnerRecord {
   name: string
   imageUrl: string | null
   timestamp: number
+  // Optional host-side-only note attached after a spin. Never broadcast to live viewers.
+  note?: string
 }
 
 export interface WheelMeta {

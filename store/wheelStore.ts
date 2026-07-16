@@ -78,6 +78,7 @@ interface WheelStore {
 
   // History actions
   addToHistory: (record: WinnerRecord) => void
+  setHistoryNote: (recordId: string, note: string) => void
   clearHistory: () => void
 
   // Persistence actions
@@ -220,6 +221,12 @@ export const useWheelStore = create<WheelStore>()(
 
     addToHistory: (record) =>
       set((s) => { s.history.unshift(record) }),
+
+    setHistoryNote: (recordId, note) =>
+      set((s) => {
+        const rec = s.history.find(h => h.id === recordId)
+        if (rec) rec.note = note
+      }),
 
     clearHistory: () =>
       set((s) => { s.history = [] }),

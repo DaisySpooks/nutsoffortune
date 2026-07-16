@@ -16,7 +16,7 @@ interface Props {
  * actions, so it adds no new behaviour beyond surfacing the result.
  */
 export default function WinnerModal({ onSpinAgain }: Props) {
-  const { winner, showWinnerModal, setShowWinnerModal, autoRemoveEntry, config, wheelMode } = useWheelStore()
+  const { winner, showWinnerModal, setShowWinnerModal, autoRemoveEntry, config, wheelMode, history, setHistoryNote } = useWheelStore()
   const isPrizeMode = wheelMode === 'spin-for-prize'
 
   const close = () => setShowWinnerModal(false)
@@ -25,10 +25,13 @@ export default function WinnerModal({ onSpinAgain }: Props) {
 
   const stillOnWheel = config.entries.some(e => e.id === winner.id)
   const canSpinAgain = config.entries.length >= 2
+  // The record for this spin — addToHistory runs synchronously before the modal
+  // opens, and unshift keeps it first among any prior records for the same entry.
+  const historyRecord = history.find(h => h.entryId === winner.id)
 
   return (
     <Modal open={showWinnerModal} onClose={close} title={isPrizeMode ? 'You landed on' : 'We have a winner!'} width="max-w-sm">
-      <div className="flex flex-col items-center gap-4 text-center">
+      <div className="flex flex-col items-center gap-4 text-center result-reveal-anim result-glow-anim">
         {winner.imageUrl && (
           <img
             src={winner.imageUrl}
@@ -40,6 +43,22 @@ export default function WinnerModal({ onSpinAgain }: Props) {
         <p className="text-2xl font-extrabold text-[var(--gold)] text-glow break-words leading-tight">
           {winner.name.trim() || 'Unnamed entry'}
         </p>
+
+        {historyRecord && (
+          <div className="w-full text-left">
+            <label htmlFor="winner-note" className="block text-xs text-[var(--muted)] mb-1">
+              Notes (host-only)
+            </label>
+            <textarea
+              id="winner-note"
+              value={historyRecord.note ?? ''}
+              onChange={(e) => setHistoryNote(historyRecord.id, e.target.value)}
+              placeholder="Add a private note about this result…"
+              rows={2}
+              className="w-full resize-none rounded-lg border border-[var(--border)] bg-[var(--panel)] px-3 py-2 text-sm text-[var(--text)] focus:outline-none focus:ring-2 focus:ring-[var(--gold)]"
+            />
+          </div>
+        )}
 
         <div className="flex w-full gap-2 pt-1">
           <Button
