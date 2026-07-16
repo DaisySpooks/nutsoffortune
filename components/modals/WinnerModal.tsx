@@ -62,12 +62,11 @@ export default function WinnerModal({ onSpinAgain }: Props) {
 
         <div className="flex w-full gap-2 pt-1">
           <Button
-            variant="primary"
+            variant="secondary"
             className="flex-1"
-            disabled={!canSpinAgain}
-            onClick={() => { close(); onSpinAgain() }}
+            onClick={close}
           >
-            Spin again
+            Okay
           </Button>
           {stillOnWheel && (
             <Button
@@ -89,6 +88,14 @@ export default function WinnerModal({ onSpinAgain }: Props) {
               {isPrizeMode ? 'Remove Prize' : 'Remove Winner'}
             </Button>
           )}
+          <Button
+            variant="primary"
+            className="flex-1"
+            disabled={!canSpinAgain}
+            onClick={() => { close(); onSpinAgain() }}
+          >
+            Spin again
+          </Button>
         </div>
 
         {/* Auto-remove already took the winner off the wheel — say so instead of
