@@ -16,12 +16,14 @@ export default function SettingsTab() {
     config,
     wheelMode,
     autoRemoveWinner,
+    showWinnersOnLiveView,
     setDisplayMode,
     setTheme,
     updateSpin,
     updateSounds,
     setAutoRemoveWinner,
     setWheelMode,
+    setShowWinnersOnLiveView,
   } = useWheelStore()
 
   const { displayMode, themeId, spin, sounds } = config
@@ -176,6 +178,21 @@ export default function SettingsTab() {
           onChange={setAutoRemoveWinner}
           label={wheelMode === 'spin-for-prize' ? 'Remove the prize from the wheel' : 'Remove the winner from the wheel'}
         />
+      </section>
+
+      {/* ── Live view ── */}
+      <section className="flex flex-col gap-2">
+        <h3 className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--gold)]">
+          Live view
+        </h3>
+        <Toggle
+          checked={showWinnersOnLiveView}
+          onChange={setShowWinnersOnLiveView}
+          label="Show Winners on Live View"
+        />
+        <p className="text-xs text-[var(--muted)]">
+          When enabled, viewers in the live room see a read-only list of recent winners. Host notes are never shown.
+        </p>
       </section>
 
       {/* ── Sound ── */}

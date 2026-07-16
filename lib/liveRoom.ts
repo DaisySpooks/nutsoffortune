@@ -1,6 +1,6 @@
 import { v4 as uuid } from 'uuid'
 import { supabase } from './supabase'
-import { WheelConfig, WheelMode } from '@/types/wheel'
+import { WheelConfig, WheelMode, WinnerRecord } from '@/types/wheel'
 
 // Unambiguous chars — no I/O/1/0 to avoid misreads when sharing verbally
 const ROOM_CODE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
@@ -13,11 +13,30 @@ function generateRoomCode(): string {
   return code
 }
 
+// Public subset of a WinnerRecord — never includes host-only notes or the
+// winner's image, keeping the live-room payload to the minimum spec allows.
+export interface PublicWinner {
+  name: string
+  timestamp: number
+}
+
 export interface WheelSnapshot {
   config: WheelConfig
   wheelMode: WheelMode
   autoRemoveWinner: boolean
   showPrizePreview?: boolean
+  // Host setting — gates the read-only Recent Winners panel on the desktop
+  // live view. `winners` is only populated (by the caller) when this is true.
+  showWinnersOnLiveView?: boolean
+  winners?: PublicWinner[]
+}
+
+// Strips a host's full winner history down to the public fields live viewers
+// are allowed to see. Callers should only include the result when the host
+// has enabled `showWinnersOnLiveView` — this helper does not gate on that
+// itself so callers stay explicit about when winner data leaves the host.
+export function toPublicWinners(history: WinnerRecord[]): PublicWinner[] {
+  return history.map(h => ({ name: h.name, timestamp: h.timestamp }))
 }
 
 export interface SpinEvent {

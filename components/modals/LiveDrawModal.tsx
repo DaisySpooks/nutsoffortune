@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { useWheelStore } from '@/store/wheelStore'
-import { createLiveRoom, getActiveRoomCode, broadcastWheelState } from '@/lib/liveRoom'
+import { createLiveRoom, getActiveRoomCode, broadcastWheelState, toPublicWinners } from '@/lib/liveRoom'
 import { ensureLiveImages } from '@/lib/imageUtils'
 import Modal from '@/components/ui/Modal'
 import Button from '@/components/ui/Button'
@@ -56,6 +56,8 @@ export default function LiveDrawModal({ open, onClose }: Props) {
         config: s.config,
         wheelMode: s.wheelMode,
         autoRemoveWinner: s.autoRemoveWinner,
+        showWinnersOnLiveView: s.showWinnersOnLiveView,
+        winners: s.showWinnersOnLiveView ? toPublicWinners(s.history) : [],
       })
       setRoomCode(code)
       setCopied(false)
@@ -79,6 +81,8 @@ export default function LiveDrawModal({ open, onClose }: Props) {
         config: s.config,
         wheelMode: s.wheelMode,
         autoRemoveWinner: s.autoRemoveWinner,
+        showWinnersOnLiveView: s.showWinnersOnLiveView,
+        winners: s.showWinnersOnLiveView ? toPublicWinners(s.history) : [],
       })
       navigator.clipboard.writeText(shareUrl)
       setCopied(true)

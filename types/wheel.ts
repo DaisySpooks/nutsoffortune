@@ -61,6 +61,10 @@ export interface StoredWheel {
   history: WinnerRecord[]
   autoRemoveWinner: boolean
   wheelMode: WheelMode
+  // Host setting — shows a read-only Recent Winners panel to desktop live
+  // viewers. Absent on wheels saved before this field was introduced (defaults
+  // to false on load).
+  showWinnersOnLiveView?: boolean
   createdAt: number
   updatedAt: number
   // Full entry list at the time the wheel was first loaded/created. Stored

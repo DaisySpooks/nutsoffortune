@@ -24,6 +24,9 @@ interface WheelStore {
   isPredeterminedMode: boolean
   hidePredeterminedMode: boolean
   showHistory: boolean
+  // Host setting — when true, desktop live viewers see a read-only Recent
+  // Winners panel (public name + time only, never notes).
+  showWinnersOnLiveView: boolean
 
   // History
   history: WinnerRecord[]
@@ -75,6 +78,7 @@ interface WheelStore {
   setIsPredeterminedMode: (v: boolean) => void
   setHidePredeterminedMode: (v: boolean) => void
   setShowHistory: (v: boolean) => void
+  setShowWinnersOnLiveView: (v: boolean) => void
 
   // History actions
   addToHistory: (record: WinnerRecord) => void
@@ -83,7 +87,7 @@ interface WheelStore {
 
   // Persistence actions
   loadConfig: (config: WheelConfig) => void
-  loadWheel: (payload: { config: WheelConfig; history: WinnerRecord[]; autoRemoveWinner: boolean; wheelMode: WheelMode; originalEntries?: WheelEntry[] }) => void
+  loadWheel: (payload: { config: WheelConfig; history: WinnerRecord[]; autoRemoveWinner: boolean; wheelMode: WheelMode; originalEntries?: WheelEntry[]; showWinnersOnLiveView?: boolean }) => void
   setSavedWheels: (meta: WheelMeta[]) => void
 }
 
@@ -101,6 +105,7 @@ export const useWheelStore = create<WheelStore>()(
     isPredeterminedMode: false,
     hidePredeterminedMode: false,
     showHistory: false,
+    showWinnersOnLiveView: false,
     history: [],
     savedWheels: [],
     originalEntries: null,
@@ -219,6 +224,9 @@ export const useWheelStore = create<WheelStore>()(
     setShowHistory: (v) =>
       set((s) => { s.showHistory = v }),
 
+    setShowWinnersOnLiveView: (v) =>
+      set((s) => { s.showWinnersOnLiveView = v }),
+
     addToHistory: (record) =>
       set((s) => { s.history.unshift(record) }),
 
@@ -240,6 +248,7 @@ export const useWheelStore = create<WheelStore>()(
         s.history = payload.history
         s.autoRemoveWinner = payload.autoRemoveWinner
         s.wheelMode = payload.wheelMode
+        s.showWinnersOnLiveView = payload.showWinnersOnLiveView ?? false
         // Use the explicitly passed snapshot when available (preserved across
         // autosaves). Fall back to the loaded entries for new/legacy wheels.
         const snap = payload.originalEntries ?? payload.config.entries

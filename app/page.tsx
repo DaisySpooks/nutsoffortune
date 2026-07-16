@@ -13,7 +13,7 @@ import SpinButton from '@/components/wheel/SpinButton'
 import EditorPanel from '@/components/editor/EditorPanel'
 import WinnerModal from '@/components/modals/WinnerModal'
 import PrizePreviewPanel from '@/components/presentation/PrizePreviewPanel'
-import { broadcastIntroEvent, broadcastWheelState } from '@/lib/liveRoom'
+import { broadcastIntroEvent, broadcastWheelState, toPublicWinners } from '@/lib/liveRoom'
 
 // Cover-stage width — matches how object-fit:cover scales the 16:9 background.
 const STAGE_W = 'max(100vw, calc(100vh * 16 / 9))'
@@ -135,7 +135,14 @@ export default function Home() {
     setPresentationMode(true)
     setPrizePageIndex(0)
     const s = useWheelStore.getState()
-    broadcastWheelState({ config: s.config, wheelMode: s.wheelMode, autoRemoveWinner: s.autoRemoveWinner, showPrizePreview: false })
+    broadcastWheelState({
+      config: s.config,
+      wheelMode: s.wheelMode,
+      autoRemoveWinner: s.autoRemoveWinner,
+      showPrizePreview: false,
+      showWinnersOnLiveView: s.showWinnersOnLiveView,
+      winners: s.showWinnersOnLiveView ? toPublicWinners(s.history) : [],
+    })
   }
 
   function exitPresentation() {

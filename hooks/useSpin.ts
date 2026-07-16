@@ -9,7 +9,7 @@ import {
   targetAngleForEntry,
   randomTargetAngle,
 } from '@/lib/wheelMath'
-import { broadcastSpinEvent, broadcastWheelState } from '@/lib/liveRoom'
+import { broadcastSpinEvent, broadcastWheelState, toPublicWinners } from '@/lib/liveRoom'
 import { v4 as uuid } from 'uuid'
 
 function createTickAudio() {
@@ -104,11 +104,19 @@ export function useSpin() {
     // the wheel (and highlighted) until the user removes it from the modal.
     if (store.autoRemoveWinner) {
       store.autoRemoveEntry(winner.id)
-      const updated = useWheelStore.getState()
+    }
+
+    // Re-broadcast when auto-remove changed the wheel's entries (existing
+    // behaviour), or when the host wants live viewers to see the updated
+    // winner list — otherwise leave the room state untouched, as before.
+    const updated = useWheelStore.getState()
+    if (store.autoRemoveWinner || updated.showWinnersOnLiveView) {
       broadcastWheelState({
         config: updated.config,
         wheelMode: updated.wheelMode,
         autoRemoveWinner: updated.autoRemoveWinner,
+        showWinnersOnLiveView: updated.showWinnersOnLiveView,
+        winners: updated.showWinnersOnLiveView ? toPublicWinners(updated.history) : [],
       })
     }
   }, [])

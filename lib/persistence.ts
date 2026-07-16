@@ -118,6 +118,7 @@ export async function saveCurrentWheel(): Promise<void> {
       history: s.history.map(h => ({ ...h, imageUrl: null })),
       autoRemoveWinner: s.autoRemoveWinner,
       wheelMode: s.wheelMode,
+      showWinnersOnLiveView: s.showWinnersOnLiveView,
       createdAt: prev?.createdAt ?? now,
       updatedAt: now,
       // Preserve the original snapshot independently of current entries so that
@@ -169,6 +170,7 @@ export async function loadWheelById(id: string): Promise<boolean> {
       autoRemoveWinner: rec.autoRemoveWinner,
       wheelMode: rec.wheelMode ?? 'pick-winner',
       originalEntries,
+      showWinnersOnLiveView: rec.showWinnersOnLiveView ?? false,
     })
     writeCurrentId(id)
     await refreshMeta()
@@ -217,6 +219,7 @@ export async function duplicateCurrentWheel(): Promise<void> {
       history: [],
       autoRemoveWinner: s.autoRemoveWinner,
       wheelMode: s.wheelMode,
+      showWinnersOnLiveView: s.showWinnersOnLiveView,
       createdAt: now,
       updatedAt: now,
       originalEntries: s.originalEntries ? stripEntryUrls(s.originalEntries) : undefined,

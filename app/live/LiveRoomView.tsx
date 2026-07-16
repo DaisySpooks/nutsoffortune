@@ -12,6 +12,7 @@ import { useMediaQuery } from '@/hooks/useMediaQuery'
 import WheelCanvas from '@/components/wheel/WheelCanvas'
 import WheelPointer from '@/components/wheel/WheelPointer'
 import PrizePreviewPanel from '@/components/presentation/PrizePreviewPanel'
+import RecentWinnersPanel from '@/components/presentation/RecentWinnersPanel'
 
 // Must match useSpin.ts — caps tick rate when there are many entries.
 const MIN_TICK_MS = 60
@@ -552,6 +553,10 @@ export default function LiveRoomView() {
           pageIndex={livePreviewPage}
           onPageChange={setLivePreviewPage}
         />
+
+        {snapshot.showWinnersOnLiveView && (
+          <RecentWinnersPanel winners={snapshot.winners ?? []} />
+        )}
 
         {resultReveal}
         {bottomResult}
