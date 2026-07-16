@@ -5,6 +5,7 @@ import { clsx } from 'clsx'
 import Tabs from '@/components/ui/Tabs'
 import EntriesTab from './tabs/EntriesTab'
 import SettingsTab from './tabs/SettingsTab'
+import HistoryTab from './tabs/HistoryTab'
 import WheelManagerModal from '@/components/modals/WheelManagerModal'
 import LiveDrawModal from '@/components/modals/LiveDrawModal'
 
@@ -59,6 +60,7 @@ export default function EditorPanel({ editMode, canEdit, isDesktop, isSpinning, 
           tabs={[
             { id: 'entries',  label: 'Entries',  content: <EntriesTab /> },
             { id: 'settings', label: 'Settings', content: <SettingsTab /> },
+            { id: 'history',  label: 'History',  content: <HistoryTab /> },
           ]}
           defaultTab="entries"
         />
