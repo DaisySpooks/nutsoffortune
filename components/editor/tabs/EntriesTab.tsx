@@ -8,6 +8,7 @@ import Button from '@/components/ui/Button'
 import Toggle from '@/components/ui/Toggle'
 import ImageUploader from '@/components/editor/ImageUploader'
 import EntryList from '@/components/editor/EntryList'
+import BulkAddNamesModal from '@/components/modals/BulkAddNamesModal'
 
 // ─── utilities ───────────────────────────────────────────────────────────────
 
@@ -193,6 +194,7 @@ export default function EntriesTab() {
 
   const [useFilenames, setUseFilenames] = useState(true)
   const [showBulk, setShowBulk] = useState(false)
+  const [showBulkNames, setShowBulkNames] = useState(false)
   const [bulkRows, setBulkRows] = useState<BulkRow[]>([makeRow()])
   const [spreadOnAdd, setSpreadOnAdd] = useState(false)
 
@@ -270,11 +272,16 @@ export default function EntriesTab() {
               Clear all
             </Button>
           )}
+          <Button size="sm" variant="ghost" onClick={() => setShowBulkNames(true)}>
+            Bulk Add Names
+          </Button>
           <Button size="sm" variant="primary" onClick={addBlank}>
             + Add
           </Button>
         </div>
       </div>
+
+      <BulkAddNamesModal open={showBulkNames} onClose={() => setShowBulkNames(false)} />
 
       {/* Tools row */}
       {entries.length > 1 && (
